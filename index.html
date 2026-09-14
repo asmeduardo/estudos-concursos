@@ -1,22 +1,5 @@
 <!doctype html>
-<html lang="pt-BR">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Dataprev 2026 — Rota de estudo</title>
-  <style>
-    body{font:16px/1.5 system-ui,sans-serif;max-width:900px;margin:0 auto;padding:32px 20px;color:#172033;background:#f5f8fb}
-    main{background:white;padding:28px;border-radius:16px;box-shadow:0 3px 18px #0001} h1{margin-top:0;color:#073b66}
-    a{display:block;margin:12px 0;padding:13px 16px;border-radius:9px;background:#087f78;color:white;text-decoration:none;font-weight:600}
-    a.secondary{background:#eaf4fc;color:#075b8d} small{color:#56616f}
-  </style>
-</head>
-<body><main>
-  <h1>Dataprev 2026 — rota de estudo</h1>
-  <p>Players contínuos com trechos auditados do YouTube e links diretos para os cadernos TEC relacionados.</p>
-  <a href="PLAYER_ESPECIFICAS_V2.html">▶ Player de Conhecimentos Específicos</a>
-  <a href="PLAYER_GERAIS_V2.html">▶ Player de Conhecimentos Gerais</a>
-  <a class="secondary" href="ROTEIRO_ESTUDO_DATAPREV_V2.html">Roteiro completo e matriz de cobertura</a>
-  <a class="secondary" href="MAPA_VIDEO_TEC_V2.csv">Mapa vídeo → caderno TEC (CSV)</a>
-  <p><small>O progresso dos players é salvo no navegador. Os vídeos são reproduzidos pelo YouTube; nenhum vídeo é hospedado ou copiado neste site.</small></p>
-</main></body></html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Dataprev 2026 — Player</title>
+<style>*{box-sizing:border-box}body{margin:0;background:#07111f;color:#eef5ff;font:16px/1.45 system-ui,sans-serif}header{padding:18px 4vw;border-bottom:1px solid #26384f}h1{margin:0 0 5px;font-size:clamp(1.3rem,3vw,2rem)}p{margin:0;color:#9fb0c7}nav{display:flex;gap:8px;flex-wrap:wrap;padding:12px 4vw;background:#101d2f;border-bottom:1px solid #26384f}button,a{border:1px solid #36516f;border-radius:8px;padding:9px 13px;background:#18304a;color:#eef5ff;text-decoration:none;cursor:pointer;font:inherit}button.active{background:#087f78;border-color:#17b6aa;font-weight:700}a{font-size:.9rem}main{padding:0 2vw}iframe{display:block;width:100%;height:calc(100vh - 142px);min-height:650px;border:0}</style></head>
+<body><header><h1>Dataprev 2026 — rota de estudo</h1><p>Alterne entre Específicas e Gerais sem abrir outra aba.</p></header><nav><button id="specific" class="active">Específicas</button><button id="general">Gerais</button><a href="ROTEIRO_ESTUDO_DATAPREV_V2.html">Roteiro completo</a><a href="MAPA_VIDEO_TEC_V2.csv">Mapa vídeo → TEC</a></nav><main><iframe id="player" src="PLAYER_ESPECIFICAS_V2.html" title="Player Dataprev"></iframe></main>
+<script>const frame=document.querySelector('#player'),specific=document.querySelector('#specific'),general=document.querySelector('#general');function show(which){const s=which==='specific';frame.src=s?'PLAYER_ESPECIFICAS_V2.html':'PLAYER_GERAIS_V2.html';specific.classList.toggle('active',s);general.classList.toggle('active',!s);history.replaceState(null,'',s?'#especificas':'#gerais')}specific.onclick=()=>show('specific');general.onclick=()=>show('general');if(location.hash==='#gerais')show('general');</script></body></html>
