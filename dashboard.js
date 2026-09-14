@@ -29,10 +29,13 @@ let timerRunning = false;
 let timerTick = null;
 let timerLast = 0;
 let pendingSessionSeconds = 0;
+let playerPauseTick = null;
+let manualPause = false;
 let cloud = null;
 let cloudUserId = '';
 let cloudSyncTick = null;
 let cloudSyncBusy = false;
+let lastLocalSnapshotAt = '';
 function activeContest() { return state.contests[state.activeContestId] || DEFAULT_CONTEST; }
 function dayKey(date = today, contestId = state.activeContestId) { return `${contestId}::${date}`; }
 function currentDay() { const key = dayKey(); state.daily[key] ||= { seconds: 0, sessions: [] }; return state.daily[key]; }
@@ -318,13 +321,16 @@ function createContestFromForm(event) {
         void syncCloud();
 }
 function render() { const contest = activeContest(), list = ranked(), evaluated = list.filter((x) => x.d.eligible), recovery = evaluated.filter((x) => x.d.raw < 80), seconds = currentDay().seconds; $('#todayLabel').textContent = `${new Date(`${today}T12:00:00`).toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })} · ${contest.name}`; renderContestControls(); $('#targetMinutes').value = String(state.targetMinutes); $('#metricTime').textContent = fmtSeconds(seconds, true); $('#metricTimeSub').textContent = `${Math.min(100, Math.round(100 * seconds / (state.targetMinutes * 60)))}% da meta de ${state.targetMinutes} min`; $('#dayProgress').style.width = `${Math.min(100, 100 * seconds / (state.targetMinutes * 60))}%`; $('#metricCadernos').textContent = String(evaluated.length); $('#metricCadernosSub').textContent = `${list.length} cadastrados · mínimo de ${contest.minQuestions} questões`; $('#metricRecovery').textContent = String(recovery.length); const sync = state.sync?.at; $('#metricSync').textContent = sync ? fmtDate(sync) : 'Nunca'; $('#metricSyncSub').textContent = state.sync?.source || 'dados locais'; $('#syncDate').textContent = sync ? fmtDate(sync) : 'nunca'; $('#syncBadge').textContent = state.sync ? 'ATUALIZADO' : 'LOCAL'; $('#syncBadge').className = `badge ${state.sync ? 'good' : 'neutral'}`; renderNext(list[0]); renderDailyPlan(list); renderTable(list); renderHud(list); renderTimer(); }
-function focused() { return document.visibilityState === 'visible' && document.hasFocus(); }
+function focused() { return document.visibilityState === 'visible' && (document.hasFocus() || document.activeElement?.tagName === 'IFRAME'); }
 function timerLoop() { if (!timerRunning)
-    return; const now = Date.now(); if (focused() && timerLast)
+    return; const now = performance.now(); if (focused() && timerLast)
     pendingSessionSeconds += Math.max(0, Math.min(5, (now - timerLast) / 1000)); timerLast = now; renderTimer(); }
-function startTimer() { if (timerRunning)
-    return; timerRunning = true; timerLast = Date.now(); timerTick = window.setInterval(timerLoop, 1000); renderTimer(); }
-function pauseTimer(reason = 'manual') { if (!timerRunning)
+function startTimer(source = 'manual') { if (source === 'manual')
+    manualPause = false; if (timerRunning)
+    return; if (playerPauseTick)
+    window.clearTimeout(playerPauseTick); playerPauseTick = null; timerRunning = true; timerLast = performance.now(); timerTick = window.setInterval(timerLoop, 1000); renderTimer(); }
+function pauseTimer(reason = 'manual') { if (reason === 'manual' || reason === 'hud')
+    manualPause = true; if (!timerRunning)
     return; timerLoop(); timerRunning = false; if (timerTick)
     window.clearInterval(timerTick); timerTick = null; if (pendingSessionSeconds >= 1) {
     currentDay().seconds += Math.round(pendingSessionSeconds);
@@ -373,18 +379,28 @@ function readFile(file) { const reader = new FileReader(); reader.onload = () =>
 catch (error) {
     $('#syncMessage').innerHTML = `<strong>Falha na importação:</strong> ${esc(error instanceof Error ? error.message : error)}`;
 } }; reader.readAsText(file); }
-async function pullLocalSnapshot() { try {
-    const response = await fetch('http://127.0.0.1:8765/tec_sync.json', { cache: 'no-store' });
-    if (!response.ok)
-        throw new Error(`HTTP ${response.status}`);
-    importRecords(await response.json(), 'ponte local');
-    return true;
+async function pullLocalSnapshot() {
+    try {
+        const response = await fetch('http://127.0.0.1:8765/tec_sync.json', { cache: 'no-store' });
+        if (!response.ok)
+            throw new Error(`HTTP ${response.status}`);
+        const payload = await response.json();
+        if (!Array.isArray(payload.cadernos) || !payload.cadernos.length) {
+            $('#syncMessage').innerHTML = '<strong>Ponte ativa.</strong> Aguardando uma página de resultados do TEC.';
+            return true;
+        }
+        if (payload.generatedAt && payload.generatedAt === lastLocalSnapshotAt)
+            return true;
+        importRecords(payload, 'ponte local');
+        lastLocalSnapshotAt = payload.generatedAt || new Date().toISOString();
+        return true;
+    }
+    catch (error) {
+        $('#syncMessage').innerHTML = `<strong>Ponte local indisponível.</strong> ${esc(error instanceof Error ? error.message : error)}.`;
+        return false;
+    }
 }
-catch (error) {
-    $('#syncMessage').innerHTML = `<strong>Ponte local indisponível.</strong> ${esc(error instanceof Error ? error.message : error)}.`;
-    return false;
-} }
-function exportData() { const blob = new Blob([JSON.stringify({ version: 1, exportedAt: new Date().toISOString(), ...state }, null, 2)], { type: 'application/json' }); const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `dataprev-estudo-${today}.json`; link.click(); URL.revokeObjectURL(link.href); }
+function exportData() { const blob = new Blob([JSON.stringify({ version: 1, exportedAt: new Date().toISOString(), ...state }, null, 2)], { type: 'application/json' }); const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `estudos-${today}.json`; link.click(); URL.revokeObjectURL(link.href); }
 function mountPlayer(view) { const wrap = $(`#${view} .iframe-wrap`); if (!wrap || wrap.querySelector('iframe'))
     return; const frame = document.createElement('iframe'); frame.src = wrap.dataset.playerSrc || ''; frame.title = wrap.dataset.playerTitle || ''; frame.loading = 'eager'; wrap.appendChild(frame); }
 document.querySelectorAll('.tab').forEach((button) => button.addEventListener('click', () => { document.querySelectorAll('.tab').forEach((x) => x.classList.remove('active')); document.querySelectorAll('.view').forEach((x) => x.classList.remove('active')); button.classList.add('active'); $(`#${button.dataset.view}`).classList.add('active'); if (button.dataset.view === 'specific' || button.dataset.view === 'general')
@@ -398,11 +414,11 @@ $('#recalc').addEventListener('click', () => { render(); $('#syncMessage').inner
 $('#export').addEventListener('click', exportData);
 $('#tecFile').addEventListener('change', (event) => { const file = event.target.files?.[0]; if (file)
     readFile(file); });
-$('#syncRefresh').addEventListener('click', async () => { if (!(await pullLocalSnapshot()))
-    $('#tecFile').click(); });
-setInterval(pullLocalSnapshot, 15 * 60 * 1000);
-$('#timerToggle').addEventListener('click', () => timerRunning ? pauseTimer('manual') : startTimer());
-$('#hudTimerToggle').addEventListener('click', () => timerRunning ? pauseTimer('hud') : startTimer());
+$('#syncRefresh').addEventListener('click', () => { void pullLocalSnapshot(); });
+void pullLocalSnapshot();
+setInterval(pullLocalSnapshot, 2 * 60 * 1000);
+$('#timerToggle').addEventListener('click', () => timerRunning ? pauseTimer('manual') : startTimer('manual'));
+$('#hudTimerToggle').addEventListener('click', () => timerRunning ? pauseTimer('hud') : startTimer('manual'));
 $('#hudSessionType').addEventListener('change', (event) => { $('#sessionType').value = event.target.value; });
 $('#hudPanel').addEventListener('click', () => document.querySelector('[data-view="dashboard"]').click());
 $('#timerReset').addEventListener('click', () => { if (timerRunning)
@@ -412,7 +428,7 @@ $('#timerReset').addEventListener('click', () => { if (timerRunning)
     renderTimer();
 } }));
 window.addEventListener('focus', () => { if (timerRunning)
-    timerLast = Date.now(); renderTimer(); });
+    timerLast = performance.now(); renderTimer(); });
 window.addEventListener('beforeunload', () => { if (timerRunning)
     pauseTimer('unload'); });
 $('#clearCadernos').addEventListener('click', () => { if (confirm('Remover os cadernos e resultados deste concurso neste navegador?')) {
@@ -426,10 +442,17 @@ window.addEventListener('message', (event) => {
     if (event.origin !== window.location.origin)
         return;
     if (event.data?.type === 'dataprev-study-state') {
-        if (event.data.playing && !timerRunning)
-            startTimer();
-        if (!event.data.playing && timerRunning)
-            pauseTimer('player');
+        if (event.data.playing) {
+            if (playerPauseTick)
+                window.clearTimeout(playerPauseTick);
+            playerPauseTick = null;
+            if (!timerRunning && !manualPause)
+                startTimer('player');
+        }
+        else if (timerRunning && !playerPauseTick) {
+            playerPauseTick = window.setTimeout(() => { playerPauseTick = null; if (timerRunning)
+                pauseTimer('player'); }, 1500);
+        }
         return;
     }
     if (event.data?.type === 'dataprev-content-catalog' && Array.isArray(event.data.catalog)) {

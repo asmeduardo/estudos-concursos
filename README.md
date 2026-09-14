@@ -6,11 +6,20 @@ O `index.html` funciona imediatamente em modo local: o progresso e os resultados
 
 ## Ponte local do TEC
 
-Não salve a senha do TEC. Gere ou exporte um snapshot usando a sessão autenticada e normalize-o com:
+Não salve a senha do TEC. A sincronização automática usa uma sessão que você já autenticou no navegador:
+
+Para sincronização automática, use a extensão local incluída em `tools/tec_auto_sync`:
 
 ```bash
-python3 ../tools/tec_sync.py --import resultado.json --output tec_sync.json
-python3 ../tools/tec_sync.py --serve tec_sync.json --port 8765
+python3 tools/tec_sync.py --serve tec_sync.json --port 8765
+```
+
+Depois carregue `tools/tec_auto_sync` em `chrome://extensions` (Modo do desenvolvedor → Carregar sem compactação), entre no TEC normalmente e abra a área de cadernos/resultados. A extensão só lê estatísticas visíveis de uma sessão que você já autenticou; ela não lê, armazena ou envia senha. A ponte fica limitada a `127.0.0.1` e o painel consulta o snapshot a cada dois minutos.
+
+Se preferir, a importação manual continua disponível:
+
+```bash
+python3 tools/tec_sync.py --import resultado.json --output tec_sync.json
 ```
 
 O painel continua utilizável se a ponte estiver desligada; basta importar o arquivo pela interface.

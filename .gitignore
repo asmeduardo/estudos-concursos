@@ -5,3 +5,6 @@ supabase/.temp/
 .env
 .env.*
 !.env.example
+tec_sync.json
+tec_sync.json.tmp
+tools/__pycache__/

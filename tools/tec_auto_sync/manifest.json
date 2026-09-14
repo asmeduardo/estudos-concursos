@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "Painel de estudos — sincronização TEC",
+  "version": "1.0.0",
+  "description": "Envia estatísticas visíveis do TEC para a ponte local, sem acessar senhas.",
+  "permissions": [],
+  "host_permissions": [
+    "https://www.tecconcursos.com.br/*",
+    "https://tecconcursos.com.br/*",
+    "http://127.0.0.1:8765/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://www.tecconcursos.com.br/*", "https://tecconcursos.com.br/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
