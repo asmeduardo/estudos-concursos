@@ -1,0 +1,10 @@
+project_id = "nwyvkqqbdqigsimdzzrg"
+
+[functions.dashboard]
+verify_jwt = false
+
+[functions.session]
+verify_jwt = false
+
+[functions.tec-sync]
+verify_jwt = false

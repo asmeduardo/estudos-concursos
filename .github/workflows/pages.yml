@@ -1,0 +1,83 @@
+name: Publicar SPA no GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+    steps:
+      - name: Baixar código
+        uses: actions/checkout@v4
+      - name: Configurar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Instalar dependências
+        run: npm ci
+      - name: Gerar configuração pública do Supabase
+        run: |
+          test -n "$SUPABASE_URL" || (echo 'Secret SUPABASE_URL ausente' >&2; exit 1)
+          test -n "$SUPABASE_ANON_KEY" || (echo 'Secret SUPABASE_ANON_KEY ausente' >&2; exit 1)
+          node <<'NODE'
+          const fs = require('node:fs');
+          const config = {
+            url: process.env.SUPABASE_URL,
+            anonKey: process.env.SUPABASE_ANON_KEY
+          };
+          fs.writeFileSync('supabase-config.js', `window.__SUPABASE_CONFIG__ = ${JSON.stringify(config)};\n`);
+          NODE
+      - name: Compilar TypeScript
+        run: npm run build
+      - name: Montar artefato estático
+        run: |
+          mkdir -p dist
+          rsync -a \
+            --exclude='.git/' \
+            --exclude='.github/' \
+            --exclude='node_modules/' \
+            --exclude='build/' \
+            --exclude='src/' \
+            --exclude='api/' \
+            --exclude='supabase/' \
+            --exclude='package.json' \
+            --exclude='package-lock.json' \
+            --exclude='tsconfig.json' \
+            --exclude='dist/' \
+            ./ dist/
+          touch dist/.nojekyll
+      - name: Configurar Pages
+        uses: actions/configure-pages@v5
+      - name: Enviar artefato
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      pages: write
+      id-token: write
+    steps:
+      - name: Publicar
+        id: deployment
+        uses: actions/deploy-pages@v4

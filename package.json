@@ -1,0 +1,18 @@
+{
+  "name": "estudos-concursos",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc && cp build/dashboard.js dashboard.js",
+    "typecheck": "tsc --noEmit",
+    "supabase:deploy": "npx supabase functions deploy dashboard && npx supabase functions deploy session && npx supabase functions deploy tec-sync"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.57.0",
+    "vite": "^7.1.5"
+  },
+  "devDependencies": {
+    "supabase": "^2.117.0",
+    "typescript": "^7.0.2"
+  }
+}
