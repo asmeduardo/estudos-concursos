@@ -1,0 +1,108 @@
+codigo,area,camada,video,titulo,cadernos_tec,links_tec
+E01,Desenvolvimento,BASE,DvT2tEqDhYs,"Java: linguagem, OO e questões",Conceitos e Propriedades do Java | Códigos em Java,https://www.tecconcursos.com.br/questoes/cadernos/98202212/ | https://www.tecconcursos.com.br/questoes/cadernos/98202216/
+E02,Desenvolvimento,BASE,DvT2tEqDhYs,JavaScript — três blocos,Javascript | AJAX | CSS,https://www.tecconcursos.com.br/questoes/cadernos/98201880/ | https://www.tecconcursos.com.br/questoes/cadernos/98201886/ | https://www.tecconcursos.com.br/questoes/cadernos/98201874/
+E03,Arquitetura,BASE,DvT2tEqDhYs,SOA e Web Services,SOA - Arquitetura Orientada a Serviço | Conceitos Gerais de API e Web Services | REST e RESTful | UDDI | XML | JSON (JavaScript Object Notation),https://www.tecconcursos.com.br/questoes/cadernos/98202220/ | https://www.tecconcursos.com.br/questoes/cadernos/98202248/ | https://www.tecconcursos.com.br/questoes/cadernos/98202251/ | https://www.tecconcursos.com.br/questoes/cadernos/98202067/ | https://www.tecconcursos.com.br/questoes/cadernos/98201891/ | https://www.tecconcursos.com.br/questoes/cadernos/98201883/
+E04,Desenvolvimento,BASE,DvT2tEqDhYs,Orientação a objetos,Análise e Projeto Orientado a Objetos | Paradigmas de Programação,https://www.tecconcursos.com.br/questoes/cadernos/98202209/ | https://www.tecconcursos.com.br/questoes/cadernos/98202058/
+E05,Ágil,BASE,DvT2tEqDhYs,"Scrum, XP e questões",SCRUM | XP (Extreme Programming) | TDD e BDD,https://www.tecconcursos.com.br/questoes/cadernos/98202196/ | https://www.tecconcursos.com.br/questoes/cadernos/98202198/ | https://www.tecconcursos.com.br/questoes/cadernos/98202203/
+E06,Frontend,BASE,DvT2tEqDhYs,HTML,HTML,https://www.tecconcursos.com.br/questoes/cadernos/98201872/
+E07,Dados/IA,BASE,DvT2tEqDhYs,Big Data e questões,Conceitos de Big Data | Data Lake,https://www.tecconcursos.com.br/questoes/cadernos/98201938/ | https://www.tecconcursos.com.br/questoes/cadernos/98201946/
+E08,BI,BASE,9dxtufizvC4,"DW, OLAP, dimensional e ETL/ELT","Business Intelligence e Analytics | Definições e Funções de Data Warehouse e Data Mart | ETL (Extração, Transformação e Carga) | OLAP e suas diferenças com OLTP | Ferramentas de Business Intelligence e Visualização de Dados",https://www.tecconcursos.com.br/questoes/cadernos/98201917/ | https://www.tecconcursos.com.br/questoes/cadernos/98201920/ | https://www.tecconcursos.com.br/questoes/cadernos/98201929/ | https://www.tecconcursos.com.br/questoes/cadernos/98201932/ | https://www.tecconcursos.com.br/questoes/cadernos/98201952/
+E09,Segurança,BASE,9dxtufizvC4,ISO 27001,"Auditoria e Compliance (NBR ISO/IEC 27001, 27002, 27003, 27004 e 27007)",https://www.tecconcursos.com.br/questoes/cadernos/98204285/
+E10,Banco de dados,BASE,9dxtufizvC4,Modelagem conceitual e relacional,Conceitos e Fases de Projeto e Modelagem de Dados | Modelo Entidade-Relacionamento (MER) | Conceitos e Fundamentos de Modelo Relacional | Normalização,https://www.tecconcursos.com.br/questoes/cadernos/98202261/ | https://www.tecconcursos.com.br/questoes/cadernos/98202266/ | https://www.tecconcursos.com.br/questoes/cadernos/98202271/ | https://www.tecconcursos.com.br/questoes/cadernos/98202272/
+E11,Banco de dados,BASE,9dxtufizvC4,SQL,"Consultas e Comandos em SQL | Sublinguagens SQL (DDL, DML, DQL, DCL e DTL)",https://www.tecconcursos.com.br/questoes/cadernos/98202277/ | https://www.tecconcursos.com.br/questoes/cadernos/98202280/
+E12,Governança,BASE,9dxtufizvC4,COBIT 2019,COBIT 2019,https://www.tecconcursos.com.br/questoes/cadernos/98202094/
+E13,Processos,BASE,9dxtufizvC4,BPMN,Conceitos de BPM | BPMN,https://www.tecconcursos.com.br/questoes/cadernos/98202098/ | https://www.tecconcursos.com.br/questoes/cadernos/98202102/
+E16,Métricas,TEORIA PRIORITÁRIA,7fYDCDmBCAI,APF 80x20,Análise de Pontos de Função (APF),https://www.tecconcursos.com.br/questoes/cadernos/98201870/
+E17,Testes,TEORIA PRIORITÁRIA,xuzcp7_1orM,Testes de software,"Conceitos e Tipos de Testes de Software | Ferramentas para Teste (JUnit, FindBugs, etc.) | TDD e BDD",https://www.tecconcursos.com.br/questoes/cadernos/98202205/ | https://www.tecconcursos.com.br/questoes/cadernos/98202207/ | https://www.tecconcursos.com.br/questoes/cadernos/98202203/
+E18,Requisitos,TEORIA PRIORITÁRIA,tvV7pnbvRas,Requisitos funcionais e não funcionais,Engenharia de Requisitos,https://www.tecconcursos.com.br/questoes/cadernos/98201867/
+E19,DevOps,TEORIA PRIORITÁRIA,QhWI4Q2uBT4,DevOps para Dataprev,"DevOps, IaC, Integração Contínua e Entrega Contínua",https://www.tecconcursos.com.br/questoes/cadernos/98202204/
+E20,Arquitetura,TEORIA PRIORITÁRIA,PUfuNRNgieo,Padrões de projeto GoF,Padrões de Projeto (Engenharia de Software),https://www.tecconcursos.com.br/questoes/cadernos/98204291/
+E21,Ágil,TEORIA COMPLEMENTAR,UggpE6Y_ig0,"Scrum, XP, Kanban e Lean",SCRUM | XP (Extreme Programming) | Kanban (Engenharia de Software),https://www.tecconcursos.com.br/questoes/cadernos/98202196/ | https://www.tecconcursos.com.br/questoes/cadernos/98202198/ | https://www.tecconcursos.com.br/questoes/cadernos/98202201/
+E22,Projetos,TEORIA COMPLEMENTAR,IP6zxAK_leI,Scrum e PMBOK: gestão híbrida,SCRUM,https://www.tecconcursos.com.br/questoes/cadernos/98202196/
+E23,Segurança,TEORIA COMPLEMENTAR,QeMfxKJDXTk,X.800: serviços e mecanismos,"Conceitos Gerais de Autenticação e Controle de Acesso | TLS, SSL e HTTPS",https://www.tecconcursos.com.br/questoes/cadernos/98201896/ | https://www.tecconcursos.com.br/questoes/cadernos/98201916/
+E24,Segurança,TEORIA COMPLEMENTAR,jK6v1ypJMcU,ISO/IEC 27002:2022,"Auditoria e Compliance (NBR ISO/IEC 27001, 27002, 27003, 27004 e 27007)",https://www.tecconcursos.com.br/questoes/cadernos/98204285/
+E25,Qualidade,TEORIA COMPLEMENTAR,ln6t3uyTveQ,Clean Code,Clean Code (Código Limpo),https://www.tecconcursos.com.br/questoes/cadernos/98201973/
+E26,Qualidade,TEORIA COMPLEMENTAR,HSFHgti6nXg,SonarQube: conceitos e prática,SonarQube,https://www.tecconcursos.com.br/questoes/cadernos/98201978/
+E27,Java corporativo,TEORIA COMPLEMENTAR,iFsyrJiNft8,Java EE para Jakarta EE,"Conceitos da Plataforma Java EE | Beans (JavaBeans, EJB, ManagedBeans, etc.)",https://www.tecconcursos.com.br/questoes/cadernos/98202029/ | https://www.tecconcursos.com.br/questoes/cadernos/98202049/
+E28,Java corporativo,TEORIA COMPLEMENTAR,1tY4KYytFJM,Jakarta Server Faces (JSF),JSF,https://www.tecconcursos.com.br/questoes/cadernos/98202041/
+E29,Java corporativo,TEORIA COMPLEMENTAR,DrqINy2BODM,Ciclo de vida JPA,JPA (Java Persistence API) | Framework Hibernate,https://www.tecconcursos.com.br/questoes/cadernos/98202240/ | https://www.tecconcursos.com.br/questoes/cadernos/98202232/
+E30,Mobile,TEORIA COMPLEMENTAR,7ZZrTaLKD5Q,Principais componentes Android,"Desenvolvimento para Dispositivos Móveis (Android, IOS, etc.)",https://www.tecconcursos.com.br/questoes/cadernos/98201961/
+E32,Mobile,TEORIA COMPLEMENTAR,So5C-XSfGW0,O que é Flutter,"Desenvolvimento para Dispositivos Móveis (Android, IOS, etc.)",https://www.tecconcursos.com.br/questoes/cadernos/98201961/
+E33,Low-code/RPA,TEORIA COMPLEMENTAR,zhIby6b4RRU,Low-code e no-code,,
+E34,Low-code/RPA,TEORIA COMPLEMENTAR,NovMqe5Bxuw,RPA,,
+E35,APIs,TEORIA COMPLEMENTAR,1wIeb5Yjcqw,"REST, gRPC e GraphQL",Conceitos Gerais de API e Web Services | REST e RESTful,https://www.tecconcursos.com.br/questoes/cadernos/98202248/ | https://www.tecconcursos.com.br/questoes/cadernos/98202251/
+E36,APIs,TEORIA COMPLEMENTAR,-GJuMIV3CIg,Swagger e OpenAPI,Documentação de APIs (Swagger e OpenAPI),https://www.tecconcursos.com.br/questoes/cadernos/98202255/
+E37,Mensageria,TEORIA COMPLEMENTAR,_Uo14nxB_iA,RabbitMQ,Mensageria (Messaging),https://www.tecconcursos.com.br/questoes/cadernos/98201969/
+E38,Mensageria,TEORIA COMPLEMENTAR,qOqXz5Qv_-8,Kafka,Mensageria (Messaging),https://www.tecconcursos.com.br/questoes/cadernos/98201969/
+E39,Distribuídos,TEORIA COMPLEMENTAR,9lsizcU8Dkw,Saga versus 2PC,"Outras APIs (JDBC, JMS, JTA, etc.)",https://www.tecconcursos.com.br/questoes/cadernos/98202053/
+E40,Portais,TEORIA COMPLEMENTAR,A9P2WusFQU0,"Internet, intranet e extranet",,
+E41,Frontend,TEORIA COMPLEMENTAR,Es-6Ok0lsoI,React: state e ciclo de vida,React.js,https://www.tecconcursos.com.br/questoes/cadernos/98201885/
+E42,Frontend,TEORIA COMPLEMENTAR,8-3ZOdp_ZDo,"Angular, React e Vue",AngularJS | React.js | Framework Vue.js,https://www.tecconcursos.com.br/questoes/cadernos/98201889/ | https://www.tecconcursos.com.br/questoes/cadernos/98201885/ | https://www.tecconcursos.com.br/questoes/cadernos/98202074/
+E43,UX,TEORIA COMPLEMENTAR,vmvSMYaV4oE,Arquitetura da informação,Arquitetura da Informação (TI),https://www.tecconcursos.com.br/questoes/cadernos/98201980/
+E44,UX,TEORIA COMPLEMENTAR,1gBV5PmiQz4,Heurísticas de Nielsen,Arquitetura da Informação (TI),https://www.tecconcursos.com.br/questoes/cadernos/98201980/
+E45,UX,TEORIA COMPLEMENTAR,p_lKvfVHYUQ,Acessibilidade em HTML,HTML,https://www.tecconcursos.com.br/questoes/cadernos/98201872/
+E46,BI,TEORIA COMPLEMENTAR,RpwRH40v2Bc,Sistemas de suporte à decisão,Sistema de Informações Gerenciais e de Suporte à Decisão,https://www.tecconcursos.com.br/questoes/cadernos/98204293/
+E47,Dados/IA,TEORIA COMPLEMENTAR,fxKuSvVaPMs,"KDD, CRISP-DM e Data Mining","Data Mining (KDD, CRISP-DM, etc.)",https://www.tecconcursos.com.br/questoes/cadernos/98201934/
+E48,Dados/IA,TEORIA COMPLEMENTAR,XBM4B-NrNbw,Inteligência artificial,Conceitos Iniciais e Gerais de Inteligência Artificial,https://www.tecconcursos.com.br/questoes/cadernos/98201953/
+E49,Dados/IA,TEORIA COMPLEMENTAR,itSueS-lGqo,IA generativa e LLM,"Conceitos Iniciais e Gerais de Inteligência Artificial | P03 - IA Generativa, LLM e PLN",https://www.tecconcursos.com.br/questoes/cadernos/98201953/ | https://www.tecconcursos.com.br/questoes/cadernos/98772488/
+E50,Banco de dados,TEORIA COMPLEMENTAR,3yleTVpbCvU,Modelos NoSQL,Conceitos Gerais de NoSQL,https://www.tecconcursos.com.br/questoes/cadernos/98202292/
+E51,Governança,TEORIA COMPLEMENTAR,wYieyOXJYgY,Treinamento ITIL 4 Foundation,ITIL v4,https://www.tecconcursos.com.br/questoes/cadernos/98202089/
+E52,Projetos,TEORIA COMPLEMENTAR,U1Sweidt0Vs,Gestão de projetos,COBIT 2019,https://www.tecconcursos.com.br/questoes/cadernos/98202094/
+E54,XML,TEORIA COMPLEMENTAR,RM9wFm_72xM,"XML, XSD, DTD e XSLT",XML,https://www.tecconcursos.com.br/questoes/cadernos/98201891/
+E55,Frontend,TEORIA COMPLEMENTAR,opxYpCKzlLk,O que é uma Single-Page Application,Javascript | AJAX,https://www.tecconcursos.com.br/questoes/cadernos/98201880/ | https://www.tecconcursos.com.br/questoes/cadernos/98201886/
+E56,Frontend,TEORIA COMPLEMENTAR,jPMFqS9SKWY,Progressive Web App,Javascript,https://www.tecconcursos.com.br/questoes/cadernos/98201880/
+E57,Spring,TEORIA COMPLEMENTAR,j_F0cz0em04,Spring Framework,Framework Spring,https://www.tecconcursos.com.br/questoes/cadernos/98202235/
+E58,Spring,TEORIA COMPLEMENTAR,LW-N44fZ1wk,Microsserviços com Spring Cloud,Arquitetura de Microsserviços,https://www.tecconcursos.com.br/questoes/cadernos/98202222/
+E59,Persistência,TEORIA COMPLEMENTAR,WbAvRdG3JlU,"JDBC, JPA, Hibernate e Spring Data JPA","Outras APIs (JDBC, JMS, JTA, etc.) | JPA (Java Persistence API) | Framework Hibernate",https://www.tecconcursos.com.br/questoes/cadernos/98202053/ | https://www.tecconcursos.com.br/questoes/cadernos/98202240/ | https://www.tecconcursos.com.br/questoes/cadernos/98202232/
+E60,Java corporativo,TEORIA COMPLEMENTAR,9kDVtlTbiw0,PrimeFaces,JSF,https://www.tecconcursos.com.br/questoes/cadernos/98202041/
+E61,Portais,TEORIA COMPLEMENTAR,v8CT6Xap7dI,Portais corporativos e colaborativos,Sistemas Colaborativos e Portais Corporativos,https://www.tecconcursos.com.br/questoes/cadernos/98202017/
+E62,Conteúdo,TEORIA COMPLEMENTAR,IZi6nogysRM,O que é CMS,,
+E63,Arquitetura,TEORIA COMPLEMENTAR,7SaA3HCOc4c,Arquitetura hexagonal,Arquitetura Hexagonal,https://www.tecconcursos.com.br/questoes/cadernos/98202228/
+E65,Banco de dados,TEORIA COMPLEMENTAR,1zIzdLgD8L0,Banco de dados in-memory,Definições e Propriedades do SGBD,https://www.tecconcursos.com.br/questoes/cadernos/98202287/
+E66,Processos,TEORIA COMPLEMENTAR,Io4BYuq6InE,"Workflow, integração e BPMS",Conceitos de BPM,https://www.tecconcursos.com.br/questoes/cadernos/98202098/
+E67,Banco de dados,TEORIA COMPLEMENTAR,Mkc4qvjDiFA,"Dados estruturados, semiestruturados e não estruturados",XML | JSON (JavaScript Object Notation),https://www.tecconcursos.com.br/questoes/cadernos/98201891/ | https://www.tecconcursos.com.br/questoes/cadernos/98201883/
+E68,DevOps,TEORIA COMPLEMENTAR,Zwv9qRyVeU4,Git: conceitos e principais comandos,Git,https://www.tecconcursos.com.br/questoes/cadernos/98202258/
+E70,Segurança,TEORIA COMPLEMENTAR,eOsGqXy2vmA,"SSL, TLS e HTTPS","TLS, SSL e HTTPS",https://www.tecconcursos.com.br/questoes/cadernos/98201916/
+E31,Mobile,TEORIA POR QUESTÕES,uPQIoq3Kfhs,Android por questões comentadas,"Desenvolvimento para Dispositivos Móveis (Android, IOS, etc.)",https://www.tecconcursos.com.br/questoes/cadernos/98201961/
+E64,Segurança/Dados,TEORIA POR QUESTÕES,9GFT03_Q_2E,Blockchain para concursos,Blockchain e Smart Contracts,https://www.tecconcursos.com.br/questoes/cadernos/98201964/
+E69,DevOps,TEORIA POR QUESTÕES,_CgQJYEN0Y8,Kubernetes para concursos,"Contêineres (Docker, Kubernetes, etc.)",https://www.tecconcursos.com.br/questoes/cadernos/98202022/
+E14,Segurança,APLICAÇÃO,BnA5VNfj9so,Segurança aplicada à prova Dataprev,"Autorização e Controle de Acesso (RBAC, ABAC, MAC, DAC e ACL) | Conceitos Gerais de Autenticação e Controle de Acesso | TLS, SSL e HTTPS | OWASP | Testes de Segurança em Desenvolvimento (SAST e DAST) | Ciclo de Vida de Desenvolvimento Seguro | OAuth | Single Sign-On (SSO)",https://www.tecconcursos.com.br/questoes/cadernos/98201899/ | https://www.tecconcursos.com.br/questoes/cadernos/98201896/ | https://www.tecconcursos.com.br/questoes/cadernos/98201916/ | https://www.tecconcursos.com.br/questoes/cadernos/98201915/ | https://www.tecconcursos.com.br/questoes/cadernos/98201914/ | https://www.tecconcursos.com.br/questoes/cadernos/98201909/ | https://www.tecconcursos.com.br/questoes/cadernos/98201904/ | https://www.tecconcursos.com.br/questoes/cadernos/98201901/
+E15,Frontend/Java,APLICAÇÃO,44tQ88B_fvM,"SPA/PWA, XML/XSLT/JSON, Spring e arquitetura",Javascript | AJAX | XML | JSON (JavaScript Object Notation) | Framework Spring,https://www.tecconcursos.com.br/questoes/cadernos/98201880/ | https://www.tecconcursos.com.br/questoes/cadernos/98201886/ | https://www.tecconcursos.com.br/questoes/cadernos/98201891/ | https://www.tecconcursos.com.br/questoes/cadernos/98201883/ | https://www.tecconcursos.com.br/questoes/cadernos/98202235/
+E53,Revisão,FECHAMENTO,OQj6gV49-3c,Revisão de véspera Dataprev,,
+G01,Português,BASE,hXkgYYicY_c,Interpretação e tipologia textual para FGV,"P01 - Interpretação de Texto | P03 - Tipologia, Gêneros e Reescrita",https://www.tecconcursos.com.br/questoes/cadernos/98769975/ | https://www.tecconcursos.com.br/questoes/cadernos/98769987/
+G02,Português,MÓDULO,ltrzPijgKi4,Classes de palavras,P01 - Classes de Palavras,https://www.tecconcursos.com.br/questoes/cadernos/98769991/
+G03,Português,MÓDULO,pp-QLuf0w3Y,Análise sintática,P02 - Termos da Oração (Morfossintaxe),https://www.tecconcursos.com.br/questoes/cadernos/98769994/
+G04,Português,MÓDULO,zRYeauBptu4,Coordenação e subordinação,P03 - Subordinação (Período Composto) | P08 - Coordenação,https://www.tecconcursos.com.br/questoes/cadernos/98769997/ | https://www.tecconcursos.com.br/questoes/cadernos/98769999/
+G05,Português,MÓDULO,i3prewIwQiY,Verbos,P09 - Verbos (Tempos e Modos),https://www.tecconcursos.com.br/questoes/cadernos/98770009/
+G06,Português,MÓDULO,C8JPK8vBfa0,Concordância,P07 - Concordância,https://www.tecconcursos.com.br/questoes/cadernos/98770006/
+G07,Português,MÓDULO,Ul6rogRczCs,Regência,P05 - Regência,https://www.tecconcursos.com.br/questoes/cadernos/98770003/
+G08,Português,MÓDULO,5uMooAjtVis,Crase,P06 - Crase,https://www.tecconcursos.com.br/questoes/cadernos/98770005/
+G09,Português,MÓDULO,6zsVwix7Uh0,Colocação pronominal,P11 - Colocação Pronominal,https://www.tecconcursos.com.br/questoes/cadernos/98770015/
+G10,Português,MÓDULO,G8Stjzy-87k,Pontuação,P04 - Pontuação,https://www.tecconcursos.com.br/questoes/cadernos/98770000/
+G11,Português,MÓDULO,cQOl7Ejes00,Ortografia oficial,P10 - Ortografia e Acentuação,https://www.tecconcursos.com.br/questoes/cadernos/98770013/
+G12,Português,MÓDULO,f1vCAm294i8,Coesão e coerência,P04 - Coesão e Coerência,https://www.tecconcursos.com.br/questoes/cadernos/98769981/
+G13,Português,MÓDULO,IsVOh0ve8gg,Reescritura,"P03 - Tipologia, Gêneros e Reescrita",https://www.tecconcursos.com.br/questoes/cadernos/98769987/
+G14,Inglês,BASE,_rpSQKnlYxk,Interpretação de textos em inglês,P01 - Interpretação de Textos (Reading) | P02 - Semântica e Vocabulário,https://www.tecconcursos.com.br/questoes/cadernos/98770016/ | https://www.tecconcursos.com.br/questoes/cadernos/98770018/
+G15,Inglês,MÓDULO,HWDQGA-oJ5M,Conectores em inglês,P02 - Semântica e Vocabulário,https://www.tecconcursos.com.br/questoes/cadernos/98770018/
+G16,Inglês,MÓDULO,wht3uoy9nuk,Tempos verbais em inglês,P02 - Semântica e Vocabulário,https://www.tecconcursos.com.br/questoes/cadernos/98770018/
+G17,Inglês,FECHAMENTO,7AUg_1XjZbg,Questões FGV de inglês,P01 - Interpretação de Textos (Reading),https://www.tecconcursos.com.br/questoes/cadernos/98770016/
+G18,RLM,BASE,_yMyiFxJ10U,Proposições lógicas,P01 - Lógica Sentencial,https://www.tecconcursos.com.br/questoes/cadernos/98770035/
+G19,RLM,BASE,Ln2pvEPVTK0,Tabela-verdade,P01 - Lógica Sentencial,https://www.tecconcursos.com.br/questoes/cadernos/98770035/
+G20,RLM,BASE,TVjzslm2QO4,Equivalências e negações,P01 - Lógica Sentencial,https://www.tecconcursos.com.br/questoes/cadernos/98770035/
+G21,RLM,BASE,Hi4Wlt51GO4,Argumentação e diagramas,P02 - Argumentação e Diagramas,https://www.tecconcursos.com.br/questoes/cadernos/98770036/
+G22,RLM,BASE,dUpxKTDws6E,Lógica de primeira ordem,P01 - Lógica Sentencial,https://www.tecconcursos.com.br/questoes/cadernos/98770035/
+G23,RLM,MÓDULO,siCr9V-dXRE,"Razão, proporção e regra de três","P01 - Razão, Proporção e Porcentagem",https://www.tecconcursos.com.br/questoes/cadernos/98770051/
+G24,RLM,MÓDULO,OI7H0zZp_TU,Estatística básica,P03 - Estatística,https://www.tecconcursos.com.br/questoes/cadernos/98770058/
+G25,RLM,MÓDULO,c8sNYA5lEtE,Análise combinatória,P02 - Análise Combinatória e Probabilidade,https://www.tecconcursos.com.br/questoes/cadernos/98770056/
+G26,RLM,MÓDULO,VUND1S7pMTA,Probabilidade,P02 - Análise Combinatória e Probabilidade,https://www.tecconcursos.com.br/questoes/cadernos/98770056/
+G27,RLM,MÓDULO,v5UdxK8SpxE,Geometria básica FGV,P04 - Conjuntos e Números,https://www.tecconcursos.com.br/questoes/cadernos/98770047/
+G28,RLM,MÓDULO,1EzIQLP90Y8,Matrizes,P04 - Conjuntos e Números,https://www.tecconcursos.com.br/questoes/cadernos/98770047/
+G29,RLM,MÓDULO,eBjuSzZQ4P4,Sequências,P04 - Conjuntos e Números,https://www.tecconcursos.com.br/questoes/cadernos/98770047/
+G30,Legislação,BASE,GwmBN21XAuU,LGPD para Dataprev 2026,P01 - LGPD,https://www.tecconcursos.com.br/questoes/cadernos/98772503/
+G31,Legislação,BASE,sqxjYAeU_EQ,LAI para Dataprev 2026,P02 - LAI,https://www.tecconcursos.com.br/questoes/cadernos/98772495/
+G32,Legislação,LACUNA,f4Zf3WeDBvU,Decreto 7.724/2012,P05 - Decreto 7.724/2012,https://www.tecconcursos.com.br/questoes/cadernos/98772498/
+G33,Legislação,LACUNA,40tjj08uOvU,Decreto 7.845/2012,P05 - Decreto 7.724/2012,https://www.tecconcursos.com.br/questoes/cadernos/98772498/
+G34,Legislação,BASE,--Bne35RDeg,Marco Civil da Internet,P03 - Marco Civil da Internet,https://www.tecconcursos.com.br/questoes/cadernos/98772502/
+G35,Legislação,BASE,OcXYCddOzIA,Lei 12.737/2012,P04 - Delitos Informáticos,https://www.tecconcursos.com.br/questoes/cadernos/98772499/
+G36,Atualidades,BASE,MC0HECH2M8U,Atualidades Dataprev 2026,P01 - Meio Ambiente e Sustentabilidade | P02 - Política e Relações Internacionais | P03 - Economia | P08 - Sociedade | P07 - Energia,https://www.tecconcursos.com.br/questoes/cadernos/98772471/ | https://www.tecconcursos.com.br/questoes/cadernos/98772472/ | https://www.tecconcursos.com.br/questoes/cadernos/98772474/ | https://www.tecconcursos.com.br/questoes/cadernos/98772481/ | https://www.tecconcursos.com.br/questoes/cadernos/98772464/
+G37,IA geral,BASE,oJNuU1TX_oc,IA para Dataprev 2026,"P01 - Conceitos de Inteligência Artificial | P02 - Machine Learning | P03 - IA Generativa, LLM e PLN",https://www.tecconcursos.com.br/questoes/cadernos/98772484/ | https://www.tecconcursos.com.br/questoes/cadernos/98772485/ | https://www.tecconcursos.com.br/questoes/cadernos/98772488/
