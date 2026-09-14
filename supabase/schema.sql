@@ -5,6 +5,7 @@ create table if not exists public.study_contests (
   name text not null,
   exam_date date,
   target_minutes integer not null default 390 check (target_minutes between 30 and 960),
+  target_accuracy numeric(5,2) not null default 100 check (target_accuracy between 50 and 100),
   specific_weight numeric(6,2) not null default 2.5 check (specific_weight > 0),
   general_weight numeric(6,2) not null default 1 check (general_weight > 0),
   min_questions integer not null default 10 check (min_questions between 1 and 100),
