@@ -2,11 +2,13 @@
 
 ## Conclusão executiva
 
-Os vídeos são suficientes para **começar** os cadernos TEC e construir a base conceitual. Eles não são suficientes, sozinhos, para garantir acerto em todas as questões: o TEC cobra detalhes, exceções, nomenclatura normativa e variações de cálculo que não aparecem em todas as aulas.
+Pelo critério rígido que você definiu — todo tópico do edital e todo tópico relevante das questões FGV/TEC precisa aparecer em uma explicação de vídeo — a rota **ainda não está 100% fechada**. Ela é suficiente para começar os cadernos TEC e cobre a maior parte do núcleo, mas não vou declarar como cobertos assuntos que só aparecem nos comentários das questões ou de forma incidental.
 
 Na auditoria das específicas, 49/70 segmentos foram validados como explicativos, 13/70 ficaram parciais e 8/70 foram validados manualmente. Portanto, a rota é boa como teoria + aplicação, mas deve ser usada em ciclo:
 
 > vídeo → questões FGV no TEC → classificação do erro → retorno ao trecho/complemento → novo bloco de questões.
+
+Foi acrescentado o segmento **E71 — Java EE: introdução e questões** (EJB, Servlets, JSP, JDBC/JMS/JTA e mensageria), porque a introdução histórica anterior não cobria esse conjunto.
 
 ## Específicas — nível de segurança
 
@@ -35,7 +37,7 @@ E53 (revisão de véspera) serve para fechamento, não para aprender o assunto d
 
 ## Lacunas mais relevantes para as específicas
 
-Os cadernos TEC e o checklist do edital incluem detalhes de banco de dados que não estão garantidos apenas pelos vídeos: álgebra relacional, arquitetura ANSI/SPARC, mapeamento ER-relacional, views materializadas, triggers, transações/locks/isolamento, catálogo/dicionário e otimização. Esses assuntos devem ser identificados pelas questões e estudados nos comentários do TEC.
+Ainda falta inserir e validar vídeos específicos para os seguintes tópicos de banco de dados: álgebra relacional, arquitetura ANSI/SPARC, mapeamento ER-relacional, views materializadas, triggers, transações/locks/isolamento, catálogo/dicionário e otimização. Eles não podem ser considerados cobertos apenas porque existem cards ou questões no TEC.
 
 Também não há uma aula única suficientemente profunda para todo o conjunto Java EE (EJB, Servlets, JSP, JMS e JTA), nem para todas as normas de segurança. A rota cobre o mapa, mas não substitui o detalhamento das questões.
 
