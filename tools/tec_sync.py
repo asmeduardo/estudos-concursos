@@ -105,6 +105,17 @@ class CORSHandler(SimpleHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
 
+    def do_GET(self):  # noqa: N802
+        if self.path == "/health":
+            response = b'{"ok":true,"service":"tec-bridge"}'
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(response)))
+            self.end_headers()
+            self.wfile.write(response)
+            return
+        super().do_GET()
+
     def do_POST(self):  # noqa: N802
         if self.path != "/ingest":
             self.send_error(404)

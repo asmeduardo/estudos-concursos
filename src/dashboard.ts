@@ -446,6 +446,7 @@ async function pullLocalSnapshot(): Promise<boolean> {
     lastLocalSnapshotAt = payload.generatedAt || new Date().toISOString();
     return true;
   } catch (error) {
+    localStorage.removeItem('nexame.tecBridge');
     $('#syncMessage').innerHTML = `<strong>Ponte local indisponível.</strong> ${esc(error instanceof Error ? error.message : error)}.`;
     return false;
   }
@@ -480,6 +481,7 @@ $('#timerToggle').addEventListener('click', () => timerRunning ? pauseTimer('man
 $('#clearCadernos').addEventListener('click', () => { if (confirm('Remover os cadernos e resultados deste concurso neste navegador?')) { Object.keys(state.cadernos).filter((key) => key.startsWith(`${state.activeContestId}::`)).forEach((key) => delete state.cadernos[key]); state.sync = null; saveState(); render(); } }); $('#cadernoForm').addEventListener('submit', (event) => { event.preventDefault(); const form = new FormData(event.currentTarget as HTMLFormElement), c = normalize({ id: `manual-${String(form.get('name')).toLowerCase().replace(/\W+/g, '-')}`, name: form.get('name'), subject: form.get('subject'), attempted: form.get('attempted'), correct: form.get('correct'), repeatErrors: form.get('repeatErrors'), lastAttemptAt: form.get('lastAttemptAt') }); state.cadernos[cadernoKey(c.id)] = c; state.sync = { at: new Date().toISOString(), source: `cadastro manual · ${contestLabel(state.activeContestId)}` }; saveState(); (event.currentTarget as HTMLFormElement).reset(); render(); });
 window.addEventListener('message', (event: MessageEvent<{ type?: string; playing?: boolean; player?: string; code?: string; seconds?: number; completed?: boolean; catalog?: ContentItem[] }>) => {
   if (event.origin !== window.location.origin) return;
+  if (event.data?.type === 'nexame-tec-bridge-ready') { localStorage.setItem('nexame.tecBridge', 'enabled'); void pullLocalSnapshot(); return; }
   if (event.data?.type === 'dataprev-study-state') {
     if (event.data.playing) {
       const frame = [...document.querySelectorAll('iframe')].find((item) => item.contentWindow === event.source);

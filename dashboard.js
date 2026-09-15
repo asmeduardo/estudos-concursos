@@ -624,6 +624,7 @@ async function pullLocalSnapshot() {
         return true;
     }
     catch (error) {
+        localStorage.removeItem('nexame.tecBridge');
         $('#syncMessage').innerHTML = `<strong>Ponte local indisponível.</strong> ${esc(error instanceof Error ? error.message : error)}.`;
         return false;
     }
@@ -685,6 +686,11 @@ $('#cadernoForm').addEventListener('submit', (event) => { event.preventDefault()
 window.addEventListener('message', (event) => {
     if (event.origin !== window.location.origin)
         return;
+    if (event.data?.type === 'nexame-tec-bridge-ready') {
+        localStorage.setItem('nexame.tecBridge', 'enabled');
+        void pullLocalSnapshot();
+        return;
+    }
     if (event.data?.type === 'dataprev-study-state') {
         if (event.data.playing) {
             const frame = [...document.querySelectorAll('iframe')].find((item) => item.contentWindow === event.source);

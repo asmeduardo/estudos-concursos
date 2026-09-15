@@ -1,6 +1,14 @@
 (function () {
   'use strict';
   const bridge = 'http://127.0.0.1:8765/ingest';
+  // Na SPA, faça apenas o handshake com a ponte local. A página não deve
+  // tentar localhost por conta própria quando a extensão/ponte não existe.
+  if (location.origin === 'https://asmeduardo.github.io') {
+    fetch('http://127.0.0.1:8765/health', { cache: 'no-store' })
+      .then((response) => { if (!response.ok) throw new Error('bridge_unavailable'); localStorage.setItem('nexame.tecBridge', 'enabled'); window.postMessage({ type: 'nexame-tec-bridge-ready' }, location.origin); })
+      .catch(() => localStorage.removeItem('nexame.tecBridge'));
+    return;
+  }
   let lastPayload = '';
 
   function number(value) {
