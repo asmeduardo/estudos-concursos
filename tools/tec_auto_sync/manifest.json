@@ -4,6 +4,9 @@
   "version": "1.1.0",
   "description": "Envia estatísticas e resultados visíveis do TEC para a ponte local, sem acessar senhas.",
   "permissions": [],
+  "background": {
+    "service_worker": "background.js"
+  },
   "host_permissions": [
     "https://www.tecconcursos.com.br/*",
     "https://tecconcursos.com.br/*",
