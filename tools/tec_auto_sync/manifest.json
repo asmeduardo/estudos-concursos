@@ -7,6 +7,10 @@
   "background": {
     "service_worker": "background.js"
   },
+  "action": {
+    "default_title": "Nexame — sincronização TEC",
+    "default_popup": "popup.html"
+  },
   "host_permissions": [
     "https://www.tecconcursos.com.br/*",
     "https://tecconcursos.com.br/*",

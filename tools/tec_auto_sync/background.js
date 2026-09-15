@@ -12,6 +12,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     });
     return true;
   }
+  if (message?.type === 'clear_snapshot') {
+    chrome.storage.local.remove(SNAPSHOT_KEY, () => sendResponse({ ok: !chrome.runtime.lastError }));
+    return true;
+  }
   if (message?.type === 'ingest' && typeof message.payload === 'string') {
     try {
       const snapshot = JSON.parse(message.payload);
