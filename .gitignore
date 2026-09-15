@@ -8,5 +8,6 @@ supabase/.temp/
 tec_sync.json
 tec_sync.json.tmp
 tools/__pycache__/
+tools/*.zip
 **/__pycache__/
 *.py[cod]
