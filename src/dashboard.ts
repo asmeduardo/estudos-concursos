@@ -67,7 +67,7 @@ let cloudUserEmail = '';
 let cloudIsAnonymous = true;
 let cloudSyncTick: number | null = null;
 let cloudSyncBusy = false;
-let lastLocalSnapshotAt = '';
+let lastExtensionSnapshotAt = '';
 let roadmapItems: RoadmapItem[] = [];
 
 function activeContest(): ContestConfig { return state.contests[state.activeContestId] || DEFAULT_CONTEST; }
@@ -422,35 +422,6 @@ function pauseTimer(reason = 'manual'): void { if (reason === 'manual' || reason
 function parseCSV(text: string): Record<string, unknown>[] { const rows: string[][] = []; let row: string[] = [], cell = '', quoted = false; for (let i = 0; i < text.length; i++) { const ch = text[i], next = text[i + 1]; if (ch === '"' && quoted && next === '"') { cell += '"'; i++; continue; } if (ch === '"') { quoted = !quoted; continue; } if (ch === ',' && !quoted) { row.push(cell.trim()); cell = ''; continue; } if ((ch === '\n' || ch === '\r') && !quoted) { if (ch === '\r' && next === '\n') i++; row.push(cell.trim()); cell = ''; if (row.some(Boolean)) rows.push(row); row = []; continue; } cell += ch; } if (cell || row.length) { row.push(cell.trim()); rows.push(row); } if (!rows.length) return []; const headers = rows.shift()!.map((x) => x.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '')); return rows.map((r) => Object.fromEntries(headers.map((h, i) => [h, r[i] || '']))); }
 function importRecords(input: unknown, source: string): void { const records = Array.isArray(input) ? input : (input as { cadernos?: unknown[]; data?: unknown[]; items?: unknown[] })?.cadernos || (input as { data?: unknown[] })?.data || (input as { items?: unknown[] })?.items || []; if (!records.length) throw new Error('Não encontrei uma lista de cadernos no arquivo.'); records.forEach((raw, i) => { const c = normalize(raw as Record<string, unknown>, i), key = cadernoKey(c.id, c.contestId), old = state.cadernos[key]; state.cadernos[key] = old ? { ...old, ...c } : c; }); state.sync = { at: new Date().toISOString(), source: `${source} · ${records.length} cadernos · ${contestLabel(state.activeContestId)}` }; saveState(); render(); $('#syncMessage').innerHTML = `<strong>Importação concluída.</strong> ${records.length} registros processados para ${esc(contestLabel(state.activeContestId))}. O plano foi recalculado.`; }
 function readFile(file: File): void { const reader = new FileReader(); reader.onload = () => { try { const text = String(reader.result), input = file.name.toLowerCase().endsWith('.csv') ? parseCSV(text) : JSON.parse(text); importRecords(input, file.name); } catch (error) { $('#syncMessage').innerHTML = `<strong>Falha na importação:</strong> ${esc(error instanceof Error ? error.message : error)}`; } }; reader.readAsText(file); }
-async function pullLocalSnapshot(): Promise<boolean> {
-  // A ponte local é opcional. Não tente acessar localhost por padrão: além de
-  // não haver serviço na maioria dos dispositivos, isso gera erros de rede no
-  // console. A extensão pode habilitá-la definindo esta chave como "enabled".
-  if (localStorage.getItem('nexame.tecBridge') !== 'enabled') return false;
-  try {
-    const response = await fetch('http://127.0.0.1:8765/tec_sync.json', { cache: 'no-store' });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const payload = await response.json() as { generatedAt?: string; cadernos?: unknown[]; questionAttempts?: Array<{ id?: string; cadernoId?: string; correct?: boolean; attemptedAt?: string; durationSeconds?: number; topic?: string }> };
-    if ((!Array.isArray(payload.cadernos) || !payload.cadernos.length) && !(payload.questionAttempts || []).length) {
-      $('#syncMessage').innerHTML = '<strong>Ponte ativa.</strong> Aguardando uma página de resultados do TEC.';
-      return true;
-    }
-    if (payload.generatedAt && payload.generatedAt === lastLocalSnapshotAt) return true;
-    if ((payload.cadernos || []).length) importRecords(payload, 'ponte TEC automática');
-    for (const attempt of payload.questionAttempts || []) {
-      if (!attempt.id || typeof attempt.correct !== 'boolean') continue;
-      recordQuestionAttempt({ externalQuestionId: String(attempt.id), cadernoId: attempt.cadernoId, correct: attempt.correct, attemptedAt: attempt.attemptedAt || payload.generatedAt || new Date().toISOString(), durationSeconds: attempt.durationSeconds, metadata: { topic: attempt.topic || '' } });
-    }
-    if ((payload.questionAttempts || []).length) recordEvent('question_session', 'tec-extension', 0, { attempts: payload.questionAttempts!.length });
-    saveState();
-    lastLocalSnapshotAt = payload.generatedAt || new Date().toISOString();
-    return true;
-  } catch (error) {
-    localStorage.removeItem('nexame.tecBridge');
-    $('#syncMessage').innerHTML = `<strong>Ponte local indisponível.</strong> ${esc(error instanceof Error ? error.message : error)}.`;
-    return false;
-  }
-}
 function exportData(): void { const blob = new Blob([JSON.stringify({ version: 1, exportedAt: new Date().toISOString(), ...state }, null, 2)], { type: 'application/json' }); const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `estudos-${today}.json`; link.click(); URL.revokeObjectURL(link.href); }
 
 function mountPlayer(view: string): void { const wrap = $<HTMLDivElement>(`#${view} .iframe-wrap`); if (!wrap || wrap.querySelector('iframe')) return; const frame = document.createElement('iframe'); frame.src = wrap.dataset.playerSrc || ''; frame.title = wrap.dataset.playerTitle || ''; frame.loading = 'eager'; wrap.appendChild(frame); }
@@ -475,13 +446,23 @@ document.querySelector<HTMLButtonElement>('#accountButton')?.addEventListener('c
   await cloud.auth.signOut();
   window.location.replace('auth.html');
 });
-$('#export').addEventListener('click', exportData); void pullLocalSnapshot(); setInterval(pullLocalSnapshot, 2 * 60 * 1000);
+$('#export').addEventListener('click', exportData);
 $('#timerToggle').addEventListener('click', () => timerRunning ? pauseTimer('manual') : startTimer('manual')); $('#hudTimerToggle').addEventListener('click', () => timerRunning ? pauseTimer('hud') : startTimer('manual')); $('#hudSessionType').addEventListener('change', (event) => { $<HTMLSelectElement>('#sessionType').value = (event.target as HTMLSelectElement).value; }); $('#timerReset').addEventListener('click', () => { if (timerRunning) pauseTimer('reset'); state.daily[dayKey()] = { seconds: 0, sessions: [] }; saveState(); render(); });
 ['visibilitychange', 'blur'].forEach((eventName) => document.addEventListener(eventName, () => { if (timerRunning) { timerLoop(); renderTimer(); } })); window.addEventListener('focus', () => { if (timerRunning) timerLast = performance.now(); renderTimer(); }); window.addEventListener('beforeunload', () => { if (timerRunning) pauseTimer('unload'); });
 $('#clearCadernos').addEventListener('click', () => { if (confirm('Remover os cadernos e resultados deste concurso neste navegador?')) { Object.keys(state.cadernos).filter((key) => key.startsWith(`${state.activeContestId}::`)).forEach((key) => delete state.cadernos[key]); state.sync = null; saveState(); render(); } }); $('#cadernoForm').addEventListener('submit', (event) => { event.preventDefault(); const form = new FormData(event.currentTarget as HTMLFormElement), c = normalize({ id: `manual-${String(form.get('name')).toLowerCase().replace(/\W+/g, '-')}`, name: form.get('name'), subject: form.get('subject'), attempted: form.get('attempted'), correct: form.get('correct'), repeatErrors: form.get('repeatErrors'), lastAttemptAt: form.get('lastAttemptAt') }); state.cadernos[cadernoKey(c.id)] = c; state.sync = { at: new Date().toISOString(), source: `cadastro manual · ${contestLabel(state.activeContestId)}` }; saveState(); (event.currentTarget as HTMLFormElement).reset(); render(); });
-window.addEventListener('message', (event: MessageEvent<{ type?: string; playing?: boolean; player?: string; code?: string; seconds?: number; completed?: boolean; catalog?: ContentItem[] }>) => {
+window.addEventListener('message', (event: MessageEvent<{ type?: string; playing?: boolean; player?: string; code?: string; seconds?: number; completed?: boolean; catalog?: ContentItem[]; snapshot?: { generatedAt?: string; cadernos?: unknown[]; questionAttempts?: Array<{ id?: string; cadernoId?: string; correct?: boolean; attemptedAt?: string; durationSeconds?: number; topic?: string }> } }>) => {
   if (event.origin !== window.location.origin) return;
-  if (event.data?.type === 'nexame-tec-bridge-ready') { localStorage.setItem('nexame.tecBridge', 'enabled'); void pullLocalSnapshot(); return; }
+  if (event.data?.type === 'nexame-tec-snapshot' && event.data.snapshot) {
+    const payload = event.data.snapshot;
+    if (payload.generatedAt && payload.generatedAt === lastExtensionSnapshotAt) return;
+    lastExtensionSnapshotAt = payload.generatedAt || new Date().toISOString();
+    if (Array.isArray(payload.cadernos) && payload.cadernos.length) importRecords(payload, 'extensão Nexame · TEC');
+    for (const attempt of payload.questionAttempts || []) {
+      if (!attempt.id || typeof attempt.correct !== 'boolean') continue;
+      recordQuestionAttempt({ externalQuestionId: String(attempt.id), cadernoId: attempt.cadernoId, correct: attempt.correct, attemptedAt: attempt.attemptedAt || payload.generatedAt || new Date().toISOString(), durationSeconds: attempt.durationSeconds, metadata: { topic: attempt.topic || '' } });
+    }
+    saveState(); render(); return;
+  }
   if (event.data?.type === 'dataprev-study-state') {
     if (event.data.playing) {
       const frame = [...document.querySelectorAll('iframe')].find((item) => item.contentWindow === event.source);

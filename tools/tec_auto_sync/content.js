@@ -1,13 +1,17 @@
 (function () {
   'use strict';
-  const bridge = 'http://127.0.0.1:8765/ingest';
-  // Na SPA, faça apenas o handshake com a ponte local. A página não deve
-  // tentar localhost por conta própria quando a extensão/ponte não existe.
+  // Na SPA, peça ao service worker o último snapshot armazenado localmente.
   if (location.origin === 'https://asmeduardo.github.io') {
-    chrome.runtime.sendMessage({ type: 'health' }, (result) => {
-      if (chrome.runtime.lastError || !result?.ok) { localStorage.removeItem('nexame.tecBridge'); return; }
-      localStorage.setItem('nexame.tecBridge', 'enabled'); window.postMessage({ type: 'nexame-tec-bridge-ready' }, location.origin);
+    let lastSnapshot = '';
+    const requestSnapshot = () => chrome.runtime.sendMessage({ type: 'get_snapshot' }, (result) => {
+      if (chrome.runtime.lastError || !result?.ok || !result.snapshot) return;
+      const stamp = String(result.snapshot.generatedAt || '');
+      if (stamp === lastSnapshot) return;
+      lastSnapshot = stamp;
+      window.postMessage({ type: 'nexame-tec-snapshot', snapshot: result.snapshot }, location.origin);
     });
+    requestSnapshot();
+    setInterval(requestSnapshot, 30_000);
     return;
   }
   let lastPayload = '';
@@ -64,7 +68,7 @@
     if (stable === lastPayload) return;
     lastPayload = stable;
     const payload = JSON.stringify({ source: 'tec-extension', generatedAt: new Date().toISOString(), cadernos: unique, questionAttempts: attempt ? [attempt] : [] });
-    chrome.runtime.sendMessage({ type: 'ingest', payload }, (result) => { if (chrome.runtime.lastError || !result?.ok) { badge('TEC detectado · falha ao enviar'); return; } badge(`TEC sincronizado · ${unique.length || (attempt ? 1 : 0)}`); });
+    chrome.runtime.sendMessage({ type: 'ingest', payload }, (result) => { if (chrome.runtime.lastError || !result?.ok) { badge('TEC detectado · falha ao salvar'); return; } badge(`TEC sincronizado · ${unique.length || (attempt ? 1 : 0)}`); });
   }
 
   function badge(label) {

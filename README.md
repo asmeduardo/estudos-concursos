@@ -6,17 +6,11 @@ O `index.html` funciona imediatamente em modo local. O Nexame mantém um concurs
 
 O shell da aplicação é instalável como PWA e mantém a interface disponível sem rede após a primeira abertura. Os dados de estudo continuam sendo sincronizados assim que a conexão retorna.
 
-## Ponte local do TEC
+## Extensão Nexame para o TEC
 
 Não salve a senha do TEC. A sincronização automática usa uma sessão que você já autenticou no navegador:
 
-Para sincronização automática, use a extensão local incluída em `tools/tec_auto_sync`:
-
-```bash
-python3 tools/tec_sync.py --serve tec_sync.json --port 8765
-```
-
-Depois carregue `tools/tec_auto_sync` em `chrome://extensions` (Modo do desenvolvedor → Carregar sem compactação), entre no TEC normalmente e abra a área de cadernos/resultados. A extensão só lê estatísticas visíveis de uma sessão que você já autenticou; ela não lê, armazena ou envia senha. A ponte fica limitada a `127.0.0.1` e o painel consulta o snapshot a cada dois minutos.
+Para sincronização automática, instale a extensão Nexame (distribuição privada/não listada) e conceda acesso ao TEC e ao Nexame. Entre no TEC normalmente e abra a área de cadernos/resultados. A extensão só lê estatísticas visíveis de uma sessão que você já autenticou; ela não lê, armazena ou envia senha. O último snapshot fica temporariamente no `chrome.storage.local` e é entregue ao Nexame quando o painel está aberto. Nenhum servidor local ou processo Python é necessário.
 
 O cadastro manual permanece apenas como contingência, caso a ponte esteja indisponível:
 
@@ -24,7 +18,7 @@ O cadastro manual permanece apenas como contingência, caso a ponte esteja indis
 python3 tools/tec_sync.py --import resultado.json --output tec_sync.json
 ```
 
-O painel continua utilizável se a ponte estiver desligada; basta importar o arquivo pela interface.
+O painel continua utilizável se a extensão estiver ausente; a importação manual permanece como contingência.
 
 ## GitHub Pages + Supabase
 

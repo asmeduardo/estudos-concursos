@@ -42,7 +42,7 @@ let cloudUserEmail = '';
 let cloudIsAnonymous = true;
 let cloudSyncTick = null;
 let cloudSyncBusy = false;
-let lastLocalSnapshotAt = '';
+let lastExtensionSnapshotAt = '';
 let roadmapItems = [];
 function activeContest() { return state.contests[state.activeContestId] || DEFAULT_CONTEST; }
 function dayKey(date = today, contestId = state.activeContestId) { return `${contestId}::${date}`; }
@@ -593,42 +593,6 @@ function readFile(file) { const reader = new FileReader(); reader.onload = () =>
 catch (error) {
     $('#syncMessage').innerHTML = `<strong>Falha na importação:</strong> ${esc(error instanceof Error ? error.message : error)}`;
 } }; reader.readAsText(file); }
-async function pullLocalSnapshot() {
-    // A ponte local é opcional. Não tente acessar localhost por padrão: além de
-    // não haver serviço na maioria dos dispositivos, isso gera erros de rede no
-    // console. A extensão pode habilitá-la definindo esta chave como "enabled".
-    if (localStorage.getItem('nexame.tecBridge') !== 'enabled')
-        return false;
-    try {
-        const response = await fetch('http://127.0.0.1:8765/tec_sync.json', { cache: 'no-store' });
-        if (!response.ok)
-            throw new Error(`HTTP ${response.status}`);
-        const payload = await response.json();
-        if ((!Array.isArray(payload.cadernos) || !payload.cadernos.length) && !(payload.questionAttempts || []).length) {
-            $('#syncMessage').innerHTML = '<strong>Ponte ativa.</strong> Aguardando uma página de resultados do TEC.';
-            return true;
-        }
-        if (payload.generatedAt && payload.generatedAt === lastLocalSnapshotAt)
-            return true;
-        if ((payload.cadernos || []).length)
-            importRecords(payload, 'ponte TEC automática');
-        for (const attempt of payload.questionAttempts || []) {
-            if (!attempt.id || typeof attempt.correct !== 'boolean')
-                continue;
-            recordQuestionAttempt({ externalQuestionId: String(attempt.id), cadernoId: attempt.cadernoId, correct: attempt.correct, attemptedAt: attempt.attemptedAt || payload.generatedAt || new Date().toISOString(), durationSeconds: attempt.durationSeconds, metadata: { topic: attempt.topic || '' } });
-        }
-        if ((payload.questionAttempts || []).length)
-            recordEvent('question_session', 'tec-extension', 0, { attempts: payload.questionAttempts.length });
-        saveState();
-        lastLocalSnapshotAt = payload.generatedAt || new Date().toISOString();
-        return true;
-    }
-    catch (error) {
-        localStorage.removeItem('nexame.tecBridge');
-        $('#syncMessage').innerHTML = `<strong>Ponte local indisponível.</strong> ${esc(error instanceof Error ? error.message : error)}.`;
-        return false;
-    }
-}
 function exportData() { const blob = new Blob([JSON.stringify({ version: 1, exportedAt: new Date().toISOString(), ...state }, null, 2)], { type: 'application/json' }); const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `estudos-${today}.json`; link.click(); URL.revokeObjectURL(link.href); }
 function mountPlayer(view) { const wrap = $(`#${view} .iframe-wrap`); if (!wrap || wrap.querySelector('iframe'))
     return; const frame = document.createElement('iframe'); frame.src = wrap.dataset.playerSrc || ''; frame.title = wrap.dataset.playerTitle || ''; frame.loading = 'eager'; wrap.appendChild(frame); }
@@ -661,8 +625,6 @@ document.querySelector('#accountButton')?.addEventListener('click', async () => 
     window.location.replace('auth.html');
 });
 $('#export').addEventListener('click', exportData);
-void pullLocalSnapshot();
-setInterval(pullLocalSnapshot, 2 * 60 * 1000);
 $('#timerToggle').addEventListener('click', () => timerRunning ? pauseTimer('manual') : startTimer('manual'));
 $('#hudTimerToggle').addEventListener('click', () => timerRunning ? pauseTimer('hud') : startTimer('manual'));
 $('#hudSessionType').addEventListener('change', (event) => { $('#sessionType').value = event.target.value; });
@@ -686,9 +648,20 @@ $('#cadernoForm').addEventListener('submit', (event) => { event.preventDefault()
 window.addEventListener('message', (event) => {
     if (event.origin !== window.location.origin)
         return;
-    if (event.data?.type === 'nexame-tec-bridge-ready') {
-        localStorage.setItem('nexame.tecBridge', 'enabled');
-        void pullLocalSnapshot();
+    if (event.data?.type === 'nexame-tec-snapshot' && event.data.snapshot) {
+        const payload = event.data.snapshot;
+        if (payload.generatedAt && payload.generatedAt === lastExtensionSnapshotAt)
+            return;
+        lastExtensionSnapshotAt = payload.generatedAt || new Date().toISOString();
+        if (Array.isArray(payload.cadernos) && payload.cadernos.length)
+            importRecords(payload, 'extensão Nexame · TEC');
+        for (const attempt of payload.questionAttempts || []) {
+            if (!attempt.id || typeof attempt.correct !== 'boolean')
+                continue;
+            recordQuestionAttempt({ externalQuestionId: String(attempt.id), cadernoId: attempt.cadernoId, correct: attempt.correct, attemptedAt: attempt.attemptedAt || payload.generatedAt || new Date().toISOString(), durationSeconds: attempt.durationSeconds, metadata: { topic: attempt.topic || '' } });
+        }
+        saveState();
+        render();
         return;
     }
     if (event.data?.type === 'dataprev-study-state') {
