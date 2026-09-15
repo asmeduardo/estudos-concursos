@@ -442,12 +442,6 @@ function renderHud(list = ranked()) {
 }
 function renderTimer() { const seconds = currentDay().seconds + pendingSessionSeconds; $('#clock').textContent = fmtSeconds(seconds); $('#timerStatus').textContent = timerRunning ? (focused() ? 'Estudando' : 'Pausado: página fora de foco') : 'Aguardando atividade'; $('#timerToggle').textContent = timerRunning ? 'Pausar sessão' : 'Iniciar sessão'; $('#hudTimerToggle').textContent = timerRunning ? 'Pausar' : 'Iniciar'; $('#hudSessionType').value = $('#sessionType').value; renderHud(); }
 function renderTable(list) { const bands = accuracyBands(); $('#cadernosEmpty').style.display = list.length ? 'none' : 'block'; $('#cadernosBody').innerHTML = list.map((x) => { const d = x.d, pct = x.attempted ? d.raw : 0; return `<tr><td><strong>${esc(x.name)}</strong><small>${esc(x.topic)}</small></td><td>${x.subject === 'specific' ? 'Específicas' : 'Gerais'}</td><td><div>${pct.toFixed(1)}%</div><div class="bar"><span class="${d.status}" style="width:${Math.min(100, pct)}%"></span></div></td><td>${x.correct}/${x.attempted}<small>${x.repeatErrors || 0} erros repetidos</small></td><td><span class="badge ${d.status}">${d.eligible ? (d.raw < bands.recovery ? 'RECUPERAÇÃO' : d.raw < bands.consolidation ? 'CONSOLIDAÇÃO' : d.raw < bands.target ? 'QUASE NA META' : 'META ATINGIDA') : 'AMOSTRA PEQUENA'}</span></td><td>${esc(d.action)}</td></tr>`; }).join(''); }
-function renderNext(x) { if (!x) {
-    $('#planStatus').textContent = 'Sem diagnóstico';
-    $('#planStatus').className = 'badge neutral';
-    $('#nextBlock').innerHTML = '<span class="badge neutral">AGUARDANDO</span><div><strong>Aguardando sincronização automática do TEC.</strong><div class="muted">Assim que houver dados, o motor priorizará a recuperação com maior retorno por minuto.</div></div>';
-    return;
-} const d = x.d, contest = activeContest(), bands = accuracyBands(), title = d.raw < bands.recovery ? 'Recuperação obrigatória' : d.raw < bands.target ? 'Consolidação até a meta' : 'Manutenção espaçada'; $('#planStatus').textContent = title; $('#planStatus').className = `badge ${d.status}`; $('#nextBlock').innerHTML = `<span class="badge ${d.status}">${x.subject === 'specific' ? `ESPECÍFICAS · ${contest.specificWeight}` : `GERAIS · ${contest.generalWeight}`}</span><div><strong>${esc(x.name)}</strong><div>${esc(d.action)} · ${x.attempted} questões · <b>${d.raw.toFixed(1)}%</b></div><div class="muted">Meta ${bands.target}% · prioridade ${d.risk.toFixed(2)} · ${esc(x.topic || 'assunto do caderno')}</div></div>`; }
 function renderDailyPlan(list) {
     const target = $('#dailyPlan'), blocks = dailyPlan(list);
     if (!target)
@@ -531,7 +525,34 @@ function createContestFromForm(event) {
     if (cloud)
         void syncCloud();
 }
-function render() { const contest = activeContest(), bands = accuracyBands(), list = ranked(), evaluated = list.filter((x) => x.d.eligible), recovery = evaluated.filter((x) => x.d.raw < bands.recovery), seconds = currentDay().seconds; $('#todayLabel').textContent = `${new Date(`${today}T12:00:00`).toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })} · ${contest.name}`; renderContestControls(); $('#targetMinutes').value = String(state.targetMinutes); $('#goalAccuracy').value = String(contest.targetAccuracy); $('#metricTime').textContent = fmtSeconds(seconds, true); $('#metricTimeSub').textContent = `${Math.min(100, Math.round(100 * seconds / (state.targetMinutes * 60)))}% da meta de ${state.targetMinutes} min`; $('#dayProgress').style.width = `${Math.min(100, 100 * seconds / (state.targetMinutes * 60))}%`; $('#metricCadernos').textContent = String(evaluated.length); $('#metricCadernosSub').textContent = `${list.length} cadastrados · mínimo de ${contest.minQuestions} questões`; $('#metricRecovery').textContent = String(recovery.length); $('#metricRecoverySub').textContent = `abaixo de ${bands.recovery}% · objetivo ${bands.target}%`; const sync = state.sync?.at; $('#metricSync').textContent = sync ? fmtDate(sync) : 'Nunca'; $('#metricSyncSub').textContent = state.sync?.source || 'dados locais'; $('#syncDate').textContent = sync ? fmtDate(sync) : 'nunca'; $('#syncBadge').textContent = state.sync ? 'ATUALIZADO' : 'LOCAL'; $('#syncBadge').className = `badge ${state.sync ? 'good' : 'neutral'}`; renderDecision(list); renderNext(list[0]); renderDailyPlan(list); renderRoadmap(); renderTable(list); renderHud(list); renderTimer(); renderAccount(); }
+function render() {
+    const contest = activeContest(), bands = accuracyBands(), list = ranked();
+    const evaluated = list.filter((item) => item.d.eligible), recovery = evaluated.filter((item) => item.d.raw < bands.recovery), seconds = currentDay().seconds;
+    $('#todayLabel').textContent = `${new Date(`${today}T12:00:00`).toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })} · ${contest.name}`;
+    renderContestControls();
+    $('#targetMinutes').value = String(state.targetMinutes);
+    $('#goalAccuracy').value = String(contest.targetAccuracy);
+    $('#metricTime').textContent = fmtSeconds(seconds, true);
+    $('#metricTimeSub').textContent = `${Math.min(100, Math.round(100 * seconds / (state.targetMinutes * 60)))}% da meta de ${state.targetMinutes} min`;
+    $('#dayProgress').style.width = `${Math.min(100, 100 * seconds / (state.targetMinutes * 60))}%`;
+    $('#metricCadernos').textContent = String(evaluated.length);
+    $('#metricCadernosSub').textContent = `${list.length} cadastrados · mínimo de ${contest.minQuestions} questões`;
+    $('#metricRecovery').textContent = String(recovery.length);
+    $('#metricRecoverySub').textContent = `abaixo de ${bands.recovery}% · objetivo ${bands.target}%`;
+    const sync = state.sync?.at;
+    $('#metricSync').textContent = sync ? fmtDate(sync) : 'Nunca';
+    $('#metricSyncSub').textContent = state.sync?.source || 'dados locais';
+    $('#syncDate').textContent = sync ? fmtDate(sync) : 'nunca';
+    $('#syncBadge').textContent = state.sync ? 'ATUALIZADO' : 'LOCAL';
+    $('#syncBadge').className = `badge ${state.sync ? 'good' : 'neutral'}`;
+    renderDecision(list);
+    renderDailyPlan(list);
+    renderRoadmap();
+    renderTable(list);
+    renderHud(list);
+    renderTimer();
+    renderAccount();
+}
 function focused() { return document.visibilityState === 'visible' && (document.hasFocus() || document.activeElement?.tagName === 'IFRAME'); }
 function timerLoop() { if (!timerRunning)
     return; const now = performance.now(); if (focused() && timerLast)
@@ -625,24 +646,33 @@ async function pullLocalSnapshot() {
 function exportData() { const blob = new Blob([JSON.stringify({ version: 1, exportedAt: new Date().toISOString(), ...state }, null, 2)], { type: 'application/json' }); const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `estudos-${today}.json`; link.click(); URL.revokeObjectURL(link.href); }
 function mountPlayer(view) { const wrap = $(`#${view} .iframe-wrap`); if (!wrap || wrap.querySelector('iframe'))
     return; const frame = document.createElement('iframe'); frame.src = wrap.dataset.playerSrc || ''; frame.title = wrap.dataset.playerTitle || ''; frame.loading = 'eager'; wrap.appendChild(frame); }
-document.querySelectorAll('.tab').forEach((button) => button.addEventListener('click', () => { document.querySelectorAll('.tab').forEach((x) => x.classList.remove('active')); document.querySelectorAll('.view').forEach((x) => x.classList.remove('active')); button.classList.add('active'); $(`#${button.dataset.view}`).classList.add('active'); if (button.dataset.view === 'specific' || button.dataset.view === 'general')
-    mountPlayer(button.dataset.view); history.replaceState(null, '', `#${button.dataset.view}`); }));
-$('#targetMinutes').addEventListener('change', (event) => { state.targetMinutes = Math.max(30, Math.min(960, Number(event.target.value) || DEFAULT_TARGET)); activeContest().targetMinutes = state.targetMinutes; activeContest().updatedAt = new Date().toISOString(); saveState(); render(); });
-$('#goalAccuracy').addEventListener('change', (event) => { activeContest().targetAccuracy = Math.max(50, Math.min(100, Number(event.target.value) || 100)); activeContest().updatedAt = new Date().toISOString(); saveState(); render(); });
+function openView(view) {
+    const target = document.querySelector(`#${view}`);
+    const tab = document.querySelector(`[data-view="${view}"]`);
+    if (!target || !tab)
+        return;
+    document.querySelectorAll('.tab').forEach((item) => item.classList.remove('active'));
+    document.querySelectorAll('.view').forEach((item) => item.classList.remove('active'));
+    tab.classList.add('active');
+    target.classList.add('active');
+    if (view === 'specific' || view === 'general')
+        mountPlayer(view);
+    history.replaceState(null, '', `#${view}`);
+}
+document.querySelectorAll('.tab').forEach((button) => button.addEventListener('click', () => openView(button.dataset.view || 'dashboard')));
+$('#targetMinutes').addEventListener('change', (event) => { state.targetMinutes = Math.max(30, Math.min(960, Number(event.target.value) || DEFAULT_TARGET)); activeContest().targetMinutes = state.targetMinutes; activeContest().updatedAt = new Date().toISOString(); saveState(); render(); void persistPlanDecision(); });
+$('#goalAccuracy').addEventListener('change', (event) => { activeContest().targetAccuracy = Math.max(50, Math.min(100, Number(event.target.value) || 100)); activeContest().updatedAt = new Date().toISOString(); saveState(); render(); void persistPlanDecision(); });
 $('#contestSelect').addEventListener('change', (event) => activateContest(event.target.value));
 $('#newContest').addEventListener('click', () => { $('#contestFormWrap').hidden = false; $('#contestForm input[name="name"]').focus(); });
 $('#cancelContest').addEventListener('click', () => { $('#contestFormWrap').hidden = true; });
 $('#contestForm').addEventListener('submit', createContestFromForm);
-document.querySelector('#settingsNav')?.addEventListener('click', () => { document.querySelector('[data-view="dashboard"]')?.click(); $('#settingsArea').scrollIntoView({ behavior: 'smooth', block: 'start' }); });
 document.querySelector('#accountButton')?.addEventListener('click', () => { void connectAccount(); });
-$('#recalc').addEventListener('click', () => { render(); $('#syncMessage').innerHTML = '<strong>Plano recalculado.</strong> A prioridade considera peso, acurácia, recência, confiança e erros repetidos.'; void persistPlanDecision(); });
 $('#export').addEventListener('click', exportData);
 void pullLocalSnapshot();
 setInterval(pullLocalSnapshot, 2 * 60 * 1000);
 $('#timerToggle').addEventListener('click', () => timerRunning ? pauseTimer('manual') : startTimer('manual'));
 $('#hudTimerToggle').addEventListener('click', () => timerRunning ? pauseTimer('hud') : startTimer('manual'));
 $('#hudSessionType').addEventListener('change', (event) => { $('#sessionType').value = event.target.value; });
-$('#hudPanel').addEventListener('click', () => document.querySelector('[data-view="dashboard"]').click());
 $('#timerReset').addEventListener('click', () => { if (timerRunning)
     pauseTimer('reset'); state.daily[dayKey()] = { seconds: 0, sessions: [] }; saveState(); render(); });
 ['visibilitychange', 'blur'].forEach((eventName) => document.addEventListener(eventName, () => { if (timerRunning) {
@@ -693,8 +723,9 @@ window.addEventListener('message', (event) => {
         saveState();
     }
 });
-if (location.hash === '#specific' || location.hash === '#general')
-    document.querySelector(`[data-view="${location.hash.slice(1)}"]`)?.click();
+const requestedView = location.hash.slice(1);
+if (['specific', 'general', 'settings'].includes(requestedView))
+    openView(requestedView);
 render();
 void initCloud();
 void loadRoadmap();
