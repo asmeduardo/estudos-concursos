@@ -3,7 +3,7 @@ const KEY = 'study-dashboard-state-v2';
 const LEGACY_KEY = 'dataprev-study-state-v1';
 const MIN_SAMPLE = 10;
 const DEFAULT_TARGET = 390;
-const DEFAULT_CONTEST = { id: 'dataprev-2026', name: 'Dataprev 2026 — Desenvolvedor de Software', examDate: '2026-10-11', targetMinutes: DEFAULT_TARGET, targetAccuracy: 100, specificWeight: 2.5, generalWeight: 1, minQuestions: MIN_SAMPLE, priority: 'primary', updatedAt: new Date().toISOString() };
+const DEFAULT_CONTEST = { id: 'meu-primeiro-concurso', name: 'Meu concurso', examDate: '', targetMinutes: DEFAULT_TARGET, targetAccuracy: 100, specificWeight: 1, generalWeight: 1, minQuestions: MIN_SAMPLE, priority: 'primary', updatedAt: new Date().toISOString() };
 const today = new Date().toISOString().slice(0, 10);
 const $ = (selector) => document.querySelector(selector);
 const state = loadState();
@@ -307,6 +307,16 @@ async function syncCloud() {
         cloudSyncBusy = false;
     }
 }
+async function persistPlanDecision() {
+    if (!cloud || !cloudUserId)
+        return;
+    const result = await cloud.functions.invoke('plan', { body: { contestId: state.activeContestId } });
+    if (result.error)
+        return;
+    const first = result.data?.recommended?.[0];
+    if (first)
+        cloudMessage(`<strong>Plano auditado.</strong> Próxima prioridade: ${esc(first.name || 'assunto')} — ${esc(first.reason || 'dados recentes')}.`);
+}
 async function initCloud() {
     if (!cloudConfigured())
         return;
@@ -328,6 +338,7 @@ async function initCloud() {
         render();
         renderAccount();
         await syncCloud();
+        await persistPlanDecision();
     }
     catch (error) {
         cloud = null;
@@ -624,7 +635,7 @@ $('#cancelContest').addEventListener('click', () => { $('#contestFormWrap').hidd
 $('#contestForm').addEventListener('submit', createContestFromForm);
 document.querySelector('#settingsNav')?.addEventListener('click', () => { document.querySelector('[data-view="dashboard"]')?.click(); $('#settingsArea').scrollIntoView({ behavior: 'smooth', block: 'start' }); });
 document.querySelector('#accountButton')?.addEventListener('click', () => { void connectAccount(); });
-$('#recalc').addEventListener('click', () => { render(); $('#syncMessage').innerHTML = '<strong>Plano recalculado.</strong> A prioridade considera peso, acurácia, recência e erros repetidos.'; });
+$('#recalc').addEventListener('click', () => { render(); $('#syncMessage').innerHTML = '<strong>Plano recalculado.</strong> A prioridade considera peso, acurácia, recência, confiança e erros repetidos.'; void persistPlanDecision(); });
 $('#export').addEventListener('click', exportData);
 void pullLocalSnapshot();
 setInterval(pullLocalSnapshot, 2 * 60 * 1000);

@@ -23,7 +23,7 @@ const KEY = 'study-dashboard-state-v2';
 const LEGACY_KEY = 'dataprev-study-state-v1';
 const MIN_SAMPLE = 10;
 const DEFAULT_TARGET = 390;
-const DEFAULT_CONTEST: ContestConfig = { id: 'dataprev-2026', name: 'Dataprev 2026 — Desenvolvedor de Software', examDate: '2026-10-11', targetMinutes: DEFAULT_TARGET, targetAccuracy: 100, specificWeight: 2.5, generalWeight: 1, minQuestions: MIN_SAMPLE, priority: 'primary', updatedAt: new Date().toISOString() };
+const DEFAULT_CONTEST: ContestConfig = { id: 'meu-primeiro-concurso', name: 'Meu concurso', examDate: '', targetMinutes: DEFAULT_TARGET, targetAccuracy: 100, specificWeight: 1, generalWeight: 1, minQuestions: MIN_SAMPLE, priority: 'primary', updatedAt: new Date().toISOString() };
 const today = new Date().toISOString().slice(0, 10);
 const $ = <T extends Element = HTMLElement>(selector: string): T => document.querySelector(selector) as T;
 const state: StudyState = loadState();
@@ -269,6 +269,13 @@ async function syncCloud(): Promise<void> {
     cloudMessage(`<strong>Sincronização pendente:</strong> ${esc(error instanceof Error ? error.message : error)}`);
   } finally { cloudSyncBusy = false; }
 }
+async function persistPlanDecision(): Promise<void> {
+  if (!cloud || !cloudUserId) return;
+  const result = await cloud.functions.invoke('plan', { body: { contestId: state.activeContestId } });
+  if (result.error) return;
+  const first = result.data?.recommended?.[0] as { name?: string; reason?: string } | undefined;
+  if (first) cloudMessage(`<strong>Plano auditado.</strong> Próxima prioridade: ${esc(first.name || 'assunto')} — ${esc(first.reason || 'dados recentes')}.`);
+}
 async function initCloud(): Promise<void> {
   if (!cloudConfigured()) return;
   try {
@@ -287,6 +294,7 @@ async function initCloud(): Promise<void> {
     render();
     renderAccount();
     await syncCloud();
+    await persistPlanDecision();
   } catch (error) {
     cloud = null; cloudUserId = ''; cloudUserEmail = ''; cloudIsAnonymous = true;
     cloudMessage(`<strong>Modo local:</strong> não foi possível conectar ao Supabase (${esc(error instanceof Error ? error.message : error)}).`);
@@ -436,7 +444,7 @@ $('#goalAccuracy').addEventListener('change', (event) => { activeContest().targe
 $('#contestSelect').addEventListener('change', (event) => activateContest((event.target as HTMLSelectElement).value)); $('#newContest').addEventListener('click', () => { $('#contestFormWrap').hidden = false; $<HTMLInputElement>('#contestForm input[name="name"]').focus(); }); $('#cancelContest').addEventListener('click', () => { $('#contestFormWrap').hidden = true; }); $('#contestForm').addEventListener('submit', createContestFromForm);
 document.querySelector<HTMLButtonElement>('#settingsNav')?.addEventListener('click', () => { document.querySelector<HTMLButtonElement>('[data-view="dashboard"]')?.click(); $('#settingsArea').scrollIntoView({ behavior: 'smooth', block: 'start' }); });
 document.querySelector<HTMLButtonElement>('#accountButton')?.addEventListener('click', () => { void connectAccount(); });
-$('#recalc').addEventListener('click', () => { render(); $('#syncMessage').innerHTML = '<strong>Plano recalculado.</strong> A prioridade considera peso, acurácia, recência e erros repetidos.'; });
+$('#recalc').addEventListener('click', () => { render(); $('#syncMessage').innerHTML = '<strong>Plano recalculado.</strong> A prioridade considera peso, acurácia, recência, confiança e erros repetidos.'; void persistPlanDecision(); });
 $('#export').addEventListener('click', exportData); void pullLocalSnapshot(); setInterval(pullLocalSnapshot, 2 * 60 * 1000);
 $('#timerToggle').addEventListener('click', () => timerRunning ? pauseTimer('manual') : startTimer('manual')); $('#hudTimerToggle').addEventListener('click', () => timerRunning ? pauseTimer('hud') : startTimer('manual')); $('#hudSessionType').addEventListener('change', (event) => { $<HTMLSelectElement>('#sessionType').value = (event.target as HTMLSelectElement).value; }); $('#hudPanel').addEventListener('click', () => document.querySelector<HTMLButtonElement>('[data-view="dashboard"]')!.click()); $('#timerReset').addEventListener('click', () => { if (timerRunning) pauseTimer('reset'); state.daily[dayKey()] = { seconds: 0, sessions: [] }; saveState(); render(); });
 ['visibilitychange', 'blur'].forEach((eventName) => document.addEventListener(eventName, () => { if (timerRunning) { timerLoop(); renderTimer(); } })); window.addEventListener('focus', () => { if (timerRunning) timerLast = performance.now(); renderTimer(); }); window.addEventListener('beforeunload', () => { if (timerRunning) pauseTimer('unload'); });

@@ -8,3 +8,9 @@ verify_jwt = false
 
 [functions.tec-sync]
 verify_jwt = false
+
+[functions.events]
+verify_jwt = false
+
+[functions.plan]
+verify_jwt = false

@@ -4,6 +4,8 @@ O painel tem como fonte `src/dashboard.ts` (TypeScript estrito). O `dashboard.js
 
 O `index.html` funciona imediatamente em modo local. O Nexame mantém um concurso principal, aceita concursos secundários para reaproveitamento de matérias e prioriza recuperação por peso, desempenho, recência, erros repetidos e tempo restante. A meta é configurável por concurso e começa em 100%; ela não é um número fixo de aprovação.
 
+O shell da aplicação é instalável como PWA e mantém a interface disponível sem rede após a primeira abertura. Os dados de estudo continuam sendo sincronizados assim que a conexão retorna.
+
 ## Ponte local do TEC
 
 Não salve a senha do TEC. A sincronização automática usa uma sessão que você já autenticou no navegador:
@@ -46,6 +48,8 @@ npm run supabase:deploy
 ```
 
 As funções usam `SUPABASE_SERVICE_ROLE_KEY` somente no ambiente server-side do Supabase; essa chave nunca é enviada ao navegador ou ao GitHub Pages.
+
+As funções `events` e `plan` registram atividades/tentativas com idempotência e guardam uma decisão diária auditável. Elas são determinísticas: IA futura poderá classificar ou resumir dados, mas não altera silenciosamente a pontuação ou as regras do edital.
 
 ## Identidade visual
 

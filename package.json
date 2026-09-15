@@ -5,7 +5,8 @@
   "scripts": {
     "build": "tsc && cp build/dashboard.js dashboard.js",
     "typecheck": "tsc --noEmit",
-    "supabase:deploy": "npx supabase functions deploy dashboard && npx supabase functions deploy session && npx supabase functions deploy tec-sync"
+    "test": "npm run typecheck && python3 -m unittest discover -s tests -p '*_test.py'",
+    "supabase:deploy": "npx supabase functions deploy dashboard && npx supabase functions deploy session && npx supabase functions deploy tec-sync && npx supabase functions deploy events && npx supabase functions deploy plan"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.0",
