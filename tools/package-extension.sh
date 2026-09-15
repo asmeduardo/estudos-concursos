@@ -8,5 +8,5 @@ output="$root/nexame-connector-v${version}.zip"
 
 rm -f "$output"
 cd "$extension"
-zip -q -r "$output" manifest.json background.js content.js popup.html popup.css popup.js PRIVACIDADE.md
+zip -q -r "$output" manifest.json background.js adapters.js content.js popup.html popup.css popup.js PRIVACIDADE.md
 printf 'Pacote criado: %s\n' "$output"
