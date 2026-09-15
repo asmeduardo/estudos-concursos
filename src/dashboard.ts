@@ -456,7 +456,7 @@ window.addEventListener('message', (event: MessageEvent<{ type?: string; playing
     const payload = event.data.snapshot;
     if (payload.generatedAt && payload.generatedAt === lastExtensionSnapshotAt) return;
     lastExtensionSnapshotAt = payload.generatedAt || new Date().toISOString();
-    if (Array.isArray(payload.cadernos) && payload.cadernos.length) importRecords(payload, 'extensão Nexame · TEC');
+    if (Array.isArray(payload.cadernos) && payload.cadernos.length) importRecords(payload, 'extensão Nexame · plataforma de questões');
     for (const attempt of payload.questionAttempts || []) {
       if (!attempt.id || typeof attempt.correct !== 'boolean') continue;
       recordQuestionAttempt({ externalQuestionId: String(attempt.id), cadernoId: attempt.cadernoId, correct: attempt.correct, attemptedAt: attempt.attemptedAt || payload.generatedAt || new Date().toISOString(), durationSeconds: attempt.durationSeconds, metadata: { topic: attempt.topic || '' } });

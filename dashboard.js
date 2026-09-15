@@ -654,7 +654,7 @@ window.addEventListener('message', (event) => {
             return;
         lastExtensionSnapshotAt = payload.generatedAt || new Date().toISOString();
         if (Array.isArray(payload.cadernos) && payload.cadernos.length)
-            importRecords(payload, 'extensão Nexame · TEC');
+            importRecords(payload, 'extensão Nexame · plataforma de questões');
         for (const attempt of payload.questionAttempts || []) {
             if (!attempt.id || typeof attempt.correct !== 'boolean')
                 continue;

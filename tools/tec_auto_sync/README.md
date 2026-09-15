@@ -1,6 +1,6 @@
-# Nexame — sincronização automática do TEC
+# Nexame — assistente de desempenho
 
-Esta extensão não faz login e não recebe senha. Você entra normalmente no TEC; enquanto uma página autenticada estiver aberta, ela lê as estatísticas visíveis dos cadernos e o resultado que a própria página exibe para uma questão. Ela não coleta enunciados, comentários ou credenciais. O service worker guarda apenas o último snapshot temporário no `chrome.storage.local` e o entrega ao Nexame quando o painel está aberto.
+Esta extensão não faz login e não recebe senha. Você entra normalmente na plataforma de questões; enquanto uma página autenticada estiver aberta, ela lê as estatísticas visíveis dos cadernos e o resultado que a própria página exibe para uma questão. Ela não coleta enunciados, comentários ou credenciais. O service worker guarda apenas o último snapshot temporário no `chrome.storage.local` e o entrega ao Nexame quando o painel está aberto.
 
 ## Instalação
 
