@@ -2,9 +2,9 @@
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-extension="$root/tec_auto_sync"
+extension="$root/nexame_connector"
 version="$(node -p "require('$extension/manifest.json').version")"
-output="$root/nexame-tec-extension-v${version}.zip"
+output="$root/nexame-connector-v${version}.zip"
 
 rm -f "$output"
 cd "$extension"

@@ -6,7 +6,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SPEC = importlib.util.spec_from_file_location("tec_sync", ROOT / "tools" / "tec_sync.py")
+SPEC = importlib.util.spec_from_file_location("snapshot_bridge", ROOT / "tools" / "snapshot_bridge.py")
 tec_sync = importlib.util.module_from_spec(SPEC)
 assert SPEC and SPEC.loader
 SPEC.loader.exec_module(tec_sync)

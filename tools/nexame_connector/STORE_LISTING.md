@@ -22,7 +22,7 @@ A extensão não faz login no TEC, não acessa senhas, cookies, comentários ou 
 
 ## Política de privacidade
 
-https://asmeduardo.github.io/estudos-concursos/tools/tec_auto_sync/PRIVACIDADE.md
+https://asmeduardo.github.io/estudos-concursos/tools/nexame_connector/PRIVACIDADE.md
 
 Para a publicação, hospede também uma versão HTML pública desta política, se a Chrome Web Store exigir uma URL HTML.
 

@@ -67,7 +67,7 @@
     const stable = JSON.stringify({ unique, attempt: attempt ? `${attempt.id}:${attempt.correct}` : '' });
     if (stable === lastPayload) return;
     lastPayload = stable;
-    const payload = JSON.stringify({ source: 'tec-extension', generatedAt: new Date().toISOString(), cadernos: unique, questionAttempts: attempt ? [attempt] : [] });
+    const payload = JSON.stringify({ source: 'nexame-connector', generatedAt: new Date().toISOString(), cadernos: unique, questionAttempts: attempt ? [attempt] : [] });
     chrome.runtime.sendMessage({ type: 'ingest', payload }, (result) => { if (chrome.runtime.lastError || !result?.ok) { badge('Nexame · atualização pendente'); return; } badge(`Nexame atualizado · ${unique.length || (attempt ? 1 : 0)} registro(s)`); });
   }
 

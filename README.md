@@ -15,7 +15,7 @@ Para sincronização automática, instale a extensão Nexame (distribuição pri
 O cadastro manual permanece apenas como contingência, caso a ponte esteja indisponível:
 
 ```bash
-python3 tools/tec_sync.py --import resultado.json --output tec_sync.json
+python3 tools/snapshot_bridge.py --import resultado.json --output tec_sync.json
 ```
 
 O painel continua utilizável se a extensão estiver ausente; a importação manual permanece como contingência.

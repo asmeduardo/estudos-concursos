@@ -125,7 +125,7 @@ class CORSHandler(SimpleHTTPRequestHandler):
             body = json.loads(self.rfile.read(length).decode("utf-8"))
             records = body if isinstance(body, list) else next((body.get(key) for key in ("cadernos", "data", "items", "results") if isinstance(body.get(key), list)), [])
             attempts = body.get("questionAttempts", []) if isinstance(body, dict) and isinstance(body.get("questionAttempts"), list) else []
-            source = str(body.get("source", "tec-extension")) if isinstance(body, dict) else "tec-extension"
+            source = str(body.get("source", "nexame-connector")) if isinstance(body, dict) else "nexame-connector"
             payload = write_snapshot(records, self.server.snapshot_path, source, attempts)
             response = json.dumps({"ok": True, "count": len(payload["cadernos"]), "attempts": len(payload["questionAttempts"])}).encode("utf-8")
             self.send_response(200)
@@ -141,7 +141,7 @@ def serve(path: Path, port: int):
     path = path.resolve()
     if not path.exists():
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps({"version": 2, "source": "tec-extension", "generatedAt": now_iso(), "cadernos": [], "questionAttempts": []}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        path.write_text(json.dumps({"version": 2, "source": "nexame-connector", "generatedAt": now_iso(), "cadernos": [], "questionAttempts": []}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     directory = path.parent
 
     class Handler(CORSHandler):
@@ -152,12 +152,12 @@ def serve(path: Path, port: int):
 
     server = ThreadingHTTPServer(("127.0.0.1", port), handler)
     server.snapshot_path = path
-    print(f"TEC bridge ativo em http://127.0.0.1:{port}/{path.name}")
+    print(f"Snapshot bridge ativo em http://127.0.0.1:{port}/{path.name}")
     print("Use Ctrl+C para encerrar. Nenhuma senha do TEC é armazenada.")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        print("\nTEC bridge encerrado.")
+        print("\nSnapshot bridge encerrado.")
     finally:
         server.server_close()
 
