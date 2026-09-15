@@ -10,6 +10,7 @@
     return;
   }
   let lastPayload = '';
+  let collectTimer = null;
 
   function number(value) {
     const match = String(value || '').match(/\d+(?:[.,]\d+)?/);
@@ -65,10 +66,19 @@
   function badge(label) {
     let node = document.getElementById('study-tec-sync-badge');
     if (!node) { node = document.createElement('div'); node.id = 'study-tec-sync-badge'; node.style.cssText = 'position:fixed;right:14px;bottom:14px;z-index:2147483647;background:#0f766e;color:#ecfeff;padding:7px 10px;border-radius:8px;font:12px system-ui;box-shadow:0 2px 10px #0005'; document.body.appendChild(node); }
-    node.textContent = label;
+    if (node.textContent !== label) node.textContent = label;
   }
 
   collect();
-  new MutationObserver(() => collect()).observe(document.documentElement, { childList: true, subtree: true });
+  new MutationObserver((mutations) => {
+    // A própria badge é criada/atualizada pela extensão; ignorá-la evita um
+    // ciclo MutationObserver → collect → badge → MutationObserver.
+    const relevant = mutations.some((mutation) => {
+      const target = mutation.target instanceof Element ? mutation.target : mutation.target.parentElement;
+      return !target?.closest('#study-tec-sync-badge');
+    });
+    if (!relevant || collectTimer !== null) return;
+    collectTimer = setTimeout(() => { collectTimer = null; collect(); }, 400);
+  }).observe(document.documentElement, { childList: true, subtree: true });
   setInterval(collect, 60_000);
 })();
