@@ -34,6 +34,19 @@ function bindPasswordToggles() { document.querySelectorAll('[data-password-toggl
 function cooldownKey(action, email) { return `nexame.auth.cooldown.${action}.${email.toLowerCase()}`; }
 function cooldownRemaining(action, email) { const until = Number(localStorage.getItem(cooldownKey(action, email)) || 0); return Math.max(0, Math.ceil((until - Date.now()) / 1000)); }
 function startCooldown(action, email) { localStorage.setItem(cooldownKey(action, email), String(Date.now() + COOLDOWN_SECONDS * 1000)); }
+async function requestAuthEmail(action, email, details) {
+    const result = await auth.functions.invoke('auth-email', { body: { action, email, ...details } });
+    if (!result.error && result.data?.ok)
+        return;
+    let message = 'Não foi possível processar a solicitação agora.';
+    try {
+        const body = await result.error?.context?.json();
+        if (body?.error)
+            message = String(body.error);
+    }
+    catch { /* resposta genérica intencional */ }
+    throw new Error(message);
+}
 function bindCooldown(button, action, email, send) {
     const refresh = () => { const left = cooldownRemaining(action, email); button.disabled = left > 0; button.textContent = left ? `Reenviar em ${left}s` : 'Reenviar código'; };
     refresh();
@@ -69,11 +82,15 @@ function renderSignup() {
     form.addEventListener('submit', async (event) => { event.preventDefault(); const data = new FormData(form), email = String(data.get('email')).trim(), password = String(data.get('password')), validation = validPassword(password), button = form.querySelector('button[type="submit"]'); if (validation) {
         notice(validation, 'error');
         return;
-    } buttonBusy(button, true, 'Enviando código…'); const result = await auth.auth.signUp({ email, password, options: { data: { display_name: String(data.get('name')).trim() }, emailRedirectTo: url(`cadastro.html?verify=1&email=${encodeURIComponent(email)}`) } }); if (result.error) {
-        notice(result.error.message, 'error');
+    } buttonBusy(button, true, 'Enviando código…'); try {
+        await requestAuthEmail('signup', email, { password, name: String(data.get('name')).trim(), redirectTo: url(`cadastro.html?verify=1&email=${encodeURIComponent(email)}`) });
+        startCooldown('signup', email);
+        location.replace(url(`cadastro.html?verify=1&email=${encodeURIComponent(email)}`));
+    }
+    catch {
+        notice('Não foi possível criar a conta agora. Tente novamente em instantes.', 'error');
         buttonBusy(button, false, 'Criar conta');
-        return;
-    } startCooldown('signup', email); location.replace(url(`cadastro.html?verify=1&email=${encodeURIComponent(email)}`)); });
+    } });
 }
 function renderVerify() {
     const email = query.get('email') || '';
@@ -82,8 +99,7 @@ function renderVerify() {
         return;
     }
     shell(`<h2>Confirme seu e-mail</h2><p class="lead">Enviamos um código de 8 dígitos para <strong>${email.replace(/[<>&"]/g, '')}</strong>.</p><form id="verifyForm"><label>Código de confirmação<input class="otp" name="code" inputmode="numeric" autocomplete="one-time-code" minlength="8" maxlength="8" pattern="[0-9]{8}" required></label><button class="primary" type="submit">Confirmar e entrar</button></form><p id="notice" class="notice" role="status"></p><p class="cooldown"><button class="password-toggle" id="resendCode" type="button">Reenviar código</button></p><div class="auth-links"><a href="cadastro.html">Usar outro e-mail</a></div>`);
-    bindCooldown(document.querySelector('#resendCode'), 'signup', email, async () => { const result = await auth.auth.resend({ type: 'signup', email, options: { emailRedirectTo: location.href } }); if (result.error)
-        throw result.error; });
+    bindCooldown(document.querySelector('#resendCode'), 'signup', email, () => requestAuthEmail('resend_signup', email, { redirectTo: location.href }));
     const form = document.querySelector('#verifyForm');
     form.addEventListener('submit', async (event) => { event.preventDefault(); const button = form.querySelector('button[type="submit"]'), token = String(new FormData(form).get('code')).replace(/\D/g, ''); buttonBusy(button, true, 'Confirmando…'); const result = await auth.auth.verifyOtp({ email, token, type: 'signup' }); if (result.error) {
         notice('Código inválido ou expirado. Solicite um novo código e tente novamente.', 'error');
@@ -94,8 +110,7 @@ function renderVerify() {
 function renderRecovery() {
     shell(`<h2>Recuperar senha</h2><p class="lead">Informe seu e-mail. Se existir uma conta, você receberá instruções para redefinir a senha.</p><form id="recoveryForm"><label>E-mail<input name="email" type="email" autocomplete="email" required></label><button class="primary" type="submit">Enviar instruções</button></form><p id="notice" class="notice" role="status"></p><p class="cooldown"><button class="password-toggle" id="resendRecovery" type="button" hidden>Reenviar instruções</button></p><div class="auth-links"><a href="auth.html">Voltar para entrar</a></div>`);
     const form = document.querySelector('#recoveryForm'), resend = document.querySelector('#resendRecovery');
-    const requestRecovery = async (email) => { const result = await auth.auth.resetPasswordForEmail(email, { redirectTo: url('redefinir-senha.html') }); if (result.error)
-        throw result.error; };
+    const requestRecovery = async (email) => requestAuthEmail('recovery', email, { redirectTo: url('redefinir-senha.html') });
     form.addEventListener('submit', async (event) => { event.preventDefault(); const email = String(new FormData(form).get('email')).trim(), button = form.querySelector('button[type="submit"]'); if (cooldownRemaining('recovery', email)) {
         notice(`Aguarde ${cooldownRemaining('recovery', email)}s para um novo envio.`, 'error');
         return;
