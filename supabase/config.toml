@@ -1,5 +1,33 @@
 project_id = "nwyvkqqbdqigsimdzzrg"
 
+[auth]
+site_url = "https://asmeduardo.github.io/estudos-concursos/"
+additional_redirect_urls = [
+  "https://asmeduardo.github.io/estudos-concursos/auth.html",
+  "https://asmeduardo.github.io/estudos-concursos/cadastro.html",
+  "https://asmeduardo.github.io/estudos-concursos/recuperar-senha.html",
+  "https://asmeduardo.github.io/estudos-concursos/redefinir-senha.html"
+]
+enable_signup = true
+enable_anonymous_sign_ins = false
+minimum_password_length = 8
+password_requirements = "lower_upper_letters_digits"
+
+[auth.rate_limit]
+sign_in_sign_ups = 10
+token_verifications = 10
+email_sent = 10
+
+[auth.email]
+enable_signup = true
+enable_confirmations = true
+double_confirm_changes = true
+secure_password_change = true
+max_frequency = "60s"
+otp_length = 8
+otp_expiry = 900
+
+
 [functions.dashboard]
 verify_jwt = false
 

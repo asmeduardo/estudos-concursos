@@ -140,36 +140,9 @@ function renderAccount() {
     const button = document.querySelector('#accountButton');
     if (!button)
         return;
-    if (!cloud) {
-        button.textContent = 'Conectar conta';
-        button.classList.remove('connected');
-        return;
-    }
-    if (cloudUserEmail) {
-        button.textContent = cloudUserEmail;
-        button.classList.add('connected');
-        return;
-    }
-    button.textContent = cloudIsAnonymous ? 'Salvar progresso na conta' : 'Conta conectada';
-    button.classList.toggle('connected', !cloudIsAnonymous);
-}
-async function connectAccount() {
-    if (!cloud) {
-        cloudMessage('<strong>Conexão indisponível.</strong> Configure o Supabase para vincular uma conta.');
-        return;
-    }
-    const email = window.prompt('Informe seu e-mail para salvar o progresso e acessar em outros dispositivos:');
-    if (!email)
-        return;
-    const clean = email.trim();
-    const result = cloudIsAnonymous
-        ? await cloud.auth.updateUser({ email: clean })
-        : await cloud.auth.signInWithOtp({ email: clean, options: { emailRedirectTo: window.location.href.split('#')[0] } });
-    if (result.error) {
-        cloudMessage(`<strong>Não foi possível enviar o acesso:</strong> ${esc(result.error.message)}`);
-        return;
-    }
-    cloudMessage('<strong>E-mail enviado.</strong> Abra o link recebido para tornar seu progresso permanente nesta e em outras máquinas.');
+    button.textContent = cloudUserEmail ? 'Sair' : 'Entrar';
+    button.classList.toggle('connected', Boolean(cloudUserEmail));
+    button.title = cloudUserEmail ? `Sessão: ${cloudUserEmail}` : 'Entrar na conta';
 }
 async function pullCloud() {
     if (!cloud || !cloudUserId)
@@ -318,25 +291,34 @@ async function persistPlanDecision() {
         cloudMessage(`<strong>Plano auditado.</strong> Próxima prioridade: ${esc(first.name || 'assunto')} — ${esc(first.reason || 'dados recentes')}.`);
 }
 async function initCloud() {
-    if (!cloudConfigured())
+    if (!cloudConfigured()) {
+        window.location.replace(`auth.html?next=${encodeURIComponent(window.location.href)}`);
         return;
+    }
     try {
         const cfg = window.__SUPABASE_CONFIG__;
         cloud = window.supabase.createClient(cfg.url, cfg.anonKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
-        let session = (await cloud.auth.getSession()).data?.session;
-        if (!session)
-            session = (await cloud.auth.signInAnonymously()).data?.session;
+        const session = (await cloud.auth.getSession()).data?.session;
+        if (!session) {
+            window.location.replace(`auth.html?next=${encodeURIComponent(window.location.href)}`);
+            return;
+        }
         cloudUserId = session?.user?.id || '';
         cloudUserEmail = session?.user?.email || '';
-        cloudIsAnonymous = Boolean(session?.user?.is_anonymous || !cloudUserEmail);
-        if (!cloudUserId)
-            throw new Error('Não foi possível criar a sessão anônima.');
+        cloudIsAnonymous = false;
+        if (!cloudUserId || !cloudUserEmail)
+            throw new Error('Não foi possível validar sua sessão.');
         await cloud.from('profiles').upsert({ id: cloudUserId, display_name: cloudUserEmail ? cloudUserEmail.split('@')[0] : null }, { onConflict: 'id' });
         await pullCloud();
         state.sync = { at: new Date().toISOString(), source: 'Supabase · conectado' };
         localStorage.setItem(KEY, JSON.stringify(state));
         render();
         renderAccount();
+        document.body.classList.remove('auth-pending');
+        cloud.auth.onAuthStateChange((_event, nextSession) => {
+            if (!nextSession)
+                window.location.replace(`auth.html?next=${encodeURIComponent(window.location.href)}`);
+        });
         await syncCloud();
         await persistPlanDecision();
     }
@@ -345,9 +327,7 @@ async function initCloud() {
         cloudUserId = '';
         cloudUserEmail = '';
         cloudIsAnonymous = true;
-        cloudMessage(`<strong>Modo local:</strong> não foi possível conectar ao Supabase (${esc(error instanceof Error ? error.message : error)}).`);
-        render();
-        renderAccount();
+        window.location.replace(`auth.html?next=${encodeURIComponent(window.location.href)}`);
     }
 }
 function accuracyBands() { const target = activeContest().targetAccuracy || 100; return { critical: Math.max(50, target - 30), recovery: Math.max(60, target - 20), consolidation: Math.max(70, target - 10), target }; }
@@ -666,7 +646,14 @@ $('#contestSelect').addEventListener('change', (event) => activateContest(event.
 $('#newContest').addEventListener('click', () => { $('#contestFormWrap').hidden = false; $('#contestForm input[name="name"]').focus(); });
 $('#cancelContest').addEventListener('click', () => { $('#contestFormWrap').hidden = true; });
 $('#contestForm').addEventListener('submit', createContestFromForm);
-document.querySelector('#accountButton')?.addEventListener('click', () => { void connectAccount(); });
+document.querySelector('#accountButton')?.addEventListener('click', async () => {
+    if (!cloud) {
+        window.location.replace(`auth.html?next=${encodeURIComponent(window.location.href)}`);
+        return;
+    }
+    await cloud.auth.signOut();
+    window.location.replace('auth.html');
+});
 $('#export').addEventListener('click', exportData);
 void pullLocalSnapshot();
 setInterval(pullLocalSnapshot, 2 * 60 * 1000);

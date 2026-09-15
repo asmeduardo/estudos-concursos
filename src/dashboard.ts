@@ -151,21 +151,9 @@ function cloudMessage(message: string): void {
 function renderAccount(): void {
   const button = document.querySelector<HTMLButtonElement>('#accountButton');
   if (!button) return;
-  if (!cloud) { button.textContent = 'Conectar conta'; button.classList.remove('connected'); return; }
-  if (cloudUserEmail) { button.textContent = cloudUserEmail; button.classList.add('connected'); return; }
-  button.textContent = cloudIsAnonymous ? 'Salvar progresso na conta' : 'Conta conectada';
-  button.classList.toggle('connected', !cloudIsAnonymous);
-}
-async function connectAccount(): Promise<void> {
-  if (!cloud) { cloudMessage('<strong>Conexão indisponível.</strong> Configure o Supabase para vincular uma conta.'); return; }
-  const email = window.prompt('Informe seu e-mail para salvar o progresso e acessar em outros dispositivos:');
-  if (!email) return;
-  const clean = email.trim();
-  const result = cloudIsAnonymous
-    ? await cloud.auth.updateUser({ email: clean })
-    : await cloud.auth.signInWithOtp({ email: clean, options: { emailRedirectTo: window.location.href.split('#')[0] } });
-  if (result.error) { cloudMessage(`<strong>Não foi possível enviar o acesso:</strong> ${esc(result.error.message)}`); return; }
-  cloudMessage('<strong>E-mail enviado.</strong> Abra o link recebido para tornar seu progresso permanente nesta e em outras máquinas.');
+  button.textContent = cloudUserEmail ? 'Sair' : 'Entrar';
+  button.classList.toggle('connected', Boolean(cloudUserEmail));
+  button.title = cloudUserEmail ? `Sessão: ${cloudUserEmail}` : 'Entrar na conta';
 }
 async function pullCloud(): Promise<void> {
   if (!cloud || !cloudUserId) return;
@@ -277,28 +265,31 @@ async function persistPlanDecision(): Promise<void> {
   if (first) cloudMessage(`<strong>Plano auditado.</strong> Próxima prioridade: ${esc(first.name || 'assunto')} — ${esc(first.reason || 'dados recentes')}.`);
 }
 async function initCloud(): Promise<void> {
-  if (!cloudConfigured()) return;
+  if (!cloudConfigured()) { window.location.replace(`auth.html?next=${encodeURIComponent(window.location.href)}`); return; }
   try {
     const cfg = window.__SUPABASE_CONFIG__!;
     cloud = window.supabase!.createClient(cfg.url!, cfg.anonKey!, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
-    let session = (await cloud.auth.getSession()).data?.session;
-    if (!session) session = (await cloud.auth.signInAnonymously()).data?.session;
+    const session = (await cloud.auth.getSession()).data?.session;
+    if (!session) { window.location.replace(`auth.html?next=${encodeURIComponent(window.location.href)}`); return; }
     cloudUserId = session?.user?.id || '';
     cloudUserEmail = session?.user?.email || '';
-    cloudIsAnonymous = Boolean((session?.user as { is_anonymous?: boolean } | undefined)?.is_anonymous || !cloudUserEmail);
-    if (!cloudUserId) throw new Error('Não foi possível criar a sessão anônima.');
+    cloudIsAnonymous = false;
+    if (!cloudUserId || !cloudUserEmail) throw new Error('Não foi possível validar sua sessão.');
     await cloud.from('profiles').upsert({ id: cloudUserId, display_name: cloudUserEmail ? cloudUserEmail.split('@')[0] : null }, { onConflict: 'id' });
     await pullCloud();
     state.sync = { at: new Date().toISOString(), source: 'Supabase · conectado' };
     localStorage.setItem(KEY, JSON.stringify(state));
     render();
     renderAccount();
+    document.body.classList.remove('auth-pending');
+    cloud.auth.onAuthStateChange((_event: string, nextSession: { user?: { id?: string; email?: string } } | null) => {
+      if (!nextSession) window.location.replace(`auth.html?next=${encodeURIComponent(window.location.href)}`);
+    });
     await syncCloud();
     await persistPlanDecision();
   } catch (error) {
     cloud = null; cloudUserId = ''; cloudUserEmail = ''; cloudIsAnonymous = true;
-    cloudMessage(`<strong>Modo local:</strong> não foi possível conectar ao Supabase (${esc(error instanceof Error ? error.message : error)}).`);
-    render(); renderAccount();
+    window.location.replace(`auth.html?next=${encodeURIComponent(window.location.href)}`);
   }
 }
 function accuracyBands(): { critical: number; recovery: number; consolidation: number; target: number } { const target = activeContest().targetAccuracy || 100; return { critical: Math.max(50, target - 30), recovery: Math.max(60, target - 20), consolidation: Math.max(70, target - 10), target }; }
@@ -474,7 +465,11 @@ document.querySelectorAll<HTMLButtonElement>('.tab').forEach((button) => button.
 $('#targetMinutes').addEventListener('change', (event) => { state.targetMinutes = Math.max(30, Math.min(960, Number((event.target as HTMLInputElement).value) || DEFAULT_TARGET)); activeContest().targetMinutes = state.targetMinutes; activeContest().updatedAt = new Date().toISOString(); saveState(); render(); void persistPlanDecision(); });
 $('#goalAccuracy').addEventListener('change', (event) => { activeContest().targetAccuracy = Math.max(50, Math.min(100, Number((event.target as HTMLInputElement).value) || 100)); activeContest().updatedAt = new Date().toISOString(); saveState(); render(); void persistPlanDecision(); });
 $('#contestSelect').addEventListener('change', (event) => activateContest((event.target as HTMLSelectElement).value)); $('#newContest').addEventListener('click', () => { $('#contestFormWrap').hidden = false; $<HTMLInputElement>('#contestForm input[name="name"]').focus(); }); $('#cancelContest').addEventListener('click', () => { $('#contestFormWrap').hidden = true; }); $('#contestForm').addEventListener('submit', createContestFromForm);
-document.querySelector<HTMLButtonElement>('#accountButton')?.addEventListener('click', () => { void connectAccount(); });
+document.querySelector<HTMLButtonElement>('#accountButton')?.addEventListener('click', async () => {
+  if (!cloud) { window.location.replace(`auth.html?next=${encodeURIComponent(window.location.href)}`); return; }
+  await cloud.auth.signOut();
+  window.location.replace('auth.html');
+});
 $('#export').addEventListener('click', exportData); void pullLocalSnapshot(); setInterval(pullLocalSnapshot, 2 * 60 * 1000);
 $('#timerToggle').addEventListener('click', () => timerRunning ? pauseTimer('manual') : startTimer('manual')); $('#hudTimerToggle').addEventListener('click', () => timerRunning ? pauseTimer('hud') : startTimer('manual')); $('#hudSessionType').addEventListener('change', (event) => { $<HTMLSelectElement>('#sessionType').value = (event.target as HTMLSelectElement).value; }); $('#timerReset').addEventListener('click', () => { if (timerRunning) pauseTimer('reset'); state.daily[dayKey()] = { seconds: 0, sessions: [] }; saveState(); render(); });
 ['visibilitychange', 'blur'].forEach((eventName) => document.addEventListener(eventName, () => { if (timerRunning) { timerLoop(); renderTimer(); } })); window.addEventListener('focus', () => { if (timerRunning) timerLast = performance.now(); renderTimer(); }); window.addEventListener('beforeunload', () => { if (timerRunning) pauseTimer('unload'); });

@@ -1,6 +1,6 @@
-const CACHE = 'nexame-shell-v1';
+const CACHE = 'nexame-shell-v2';
 const SHELL = [
-  './', './index.html', './dashboard.js', './favicon.svg', './site.webmanifest',
+  './', './index.html', './dashboard.js', './auth.html', './cadastro.html', './recuperar-senha.html', './redefinir-senha.html', './auth.js', './auth.css', './favicon.svg', './site.webmanifest',
   './assets/brand/nexame-mark.svg', './assets/icons/nexame-192.png', './assets/icons/nexame-512.png'
 ];
 
