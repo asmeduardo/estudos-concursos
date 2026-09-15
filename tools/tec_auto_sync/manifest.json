@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Painel de estudos — sincronização TEC",
-  "version": "1.0.0",
-  "description": "Envia estatísticas visíveis do TEC para a ponte local, sem acessar senhas.",
+  "name": "Nexame — sincronização TEC",
+  "version": "1.1.0",
+  "description": "Envia estatísticas e resultados visíveis do TEC para a ponte local, sem acessar senhas.",
   "permissions": [],
   "host_permissions": [
     "https://www.tecconcursos.com.br/*",

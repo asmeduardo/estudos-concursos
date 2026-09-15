@@ -3,7 +3,7 @@ const KEY = 'study-dashboard-state-v2';
 const LEGACY_KEY = 'dataprev-study-state-v1';
 const MIN_SAMPLE = 10;
 const DEFAULT_TARGET = 390;
-const DEFAULT_CONTEST = { id: 'dataprev-2026', name: 'Dataprev 2026 — Desenvolvedor de Software', examDate: '2026-10-11', targetMinutes: DEFAULT_TARGET, targetAccuracy: 100, specificWeight: 2.5, generalWeight: 1, minQuestions: MIN_SAMPLE, updatedAt: new Date().toISOString() };
+const DEFAULT_CONTEST = { id: 'dataprev-2026', name: 'Dataprev 2026 — Desenvolvedor de Software', examDate: '2026-10-11', targetMinutes: DEFAULT_TARGET, targetAccuracy: 100, specificWeight: 2.5, generalWeight: 1, minQuestions: MIN_SAMPLE, priority: 'primary', updatedAt: new Date().toISOString() };
 const today = new Date().toISOString().slice(0, 10);
 const $ = (selector) => document.querySelector(selector);
 const state = loadState();
@@ -12,6 +12,8 @@ if (!Object.keys(state.contests).length)
     state.contests[DEFAULT_CONTEST.id] = { ...DEFAULT_CONTEST };
 state.activeContestId ||= Object.keys(state.contests)[0] || DEFAULT_CONTEST.id;
 state.contests[state.activeContestId] ||= { ...DEFAULT_CONTEST, id: state.activeContestId };
+Object.values(state.contests).forEach((contest) => { contest.priority ||= contest.id === state.activeContestId ? 'primary' : 'secondary'; });
+Object.values(state.contests).filter((contest) => contest.id !== state.activeContestId).forEach((contest) => { contest.priority = 'secondary'; });
 state.targetMinutes = Number(state.targetMinutes) || state.contests[state.activeContestId].targetMinutes || DEFAULT_TARGET;
 state.contests[state.activeContestId].targetMinutes = state.targetMinutes;
 state.contests[state.activeContestId].targetAccuracy = Math.max(50, Math.min(100, Number(state.contests[state.activeContestId].targetAccuracy) || 100));
@@ -20,6 +22,8 @@ state.cadernos ||= {};
 state.content ||= {};
 state.contentProgress ||= {};
 state.daily ||= {};
+state.events ||= [];
+state.questionAttempts ||= [];
 Object.values(state.cadernos).forEach((c) => { c.contestId ||= state.activeContestId; });
 Object.entries(state.cadernos).filter(([key]) => !key.includes('::')).forEach(([key, c]) => { delete state.cadernos[key]; state.cadernos[cadernoKey(c.id, c.contestId)] = c; });
 const legacyDay = state.daily[today];
@@ -34,6 +38,8 @@ let playerPauseTick = null;
 let manualPause = false;
 let cloud = null;
 let cloudUserId = '';
+let cloudUserEmail = '';
+let cloudIsAnonymous = true;
 let cloudSyncTick = null;
 let cloudSyncBusy = false;
 let lastLocalSnapshotAt = '';
@@ -59,6 +65,30 @@ function saveState() {
     if (cloudSyncTick)
         window.clearTimeout(cloudSyncTick);
     cloudSyncTick = window.setTimeout(() => { void syncCloud(); }, 700);
+}
+function eventId(prefix) { return `${prefix}-${crypto.randomUUID()}`; }
+function eventTypeForSession(type) {
+    if (type === 'video')
+        return 'video_session';
+    if (type === 'tec')
+        return 'question_session';
+    if (type === 'correction' || type === 'review')
+        return 'review_session';
+    return 'simulation';
+}
+function recordEvent(type, source, seconds = 0, metadata = {}) {
+    state.events.push({ id: eventId('evt'), contestId: state.activeContestId, type, source, seconds: Math.max(0, Math.round(seconds)), endedAt: new Date().toISOString(), metadata, uploaded: false });
+    // Conserva o histórico recente local; a fonte durável é o Supabase quando conectado.
+    if (state.events.length > 2500)
+        state.events = state.events.slice(-2500);
+}
+function recordQuestionAttempt(attempt) {
+    const id = `question-${attempt.externalQuestionId}-${attempt.attemptedAt}-${attempt.correct ? 'c' : 'e'}`;
+    if (state.questionAttempts.some((item) => item.id === id))
+        return;
+    state.questionAttempts.push({ ...attempt, id, contestId: state.activeContestId, uploaded: false });
+    if (state.questionAttempts.length > 5000)
+        state.questionAttempts = state.questionAttempts.slice(-5000);
 }
 function esc(value) { return String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] || c)); }
 function fmtSeconds(total, short = false) {
@@ -106,6 +136,41 @@ function cloudMessage(message) {
     if (target)
         target.innerHTML = message;
 }
+function renderAccount() {
+    const button = document.querySelector('#accountButton');
+    if (!button)
+        return;
+    if (!cloud) {
+        button.textContent = 'Conectar conta';
+        button.classList.remove('connected');
+        return;
+    }
+    if (cloudUserEmail) {
+        button.textContent = cloudUserEmail;
+        button.classList.add('connected');
+        return;
+    }
+    button.textContent = cloudIsAnonymous ? 'Salvar progresso na conta' : 'Conta conectada';
+    button.classList.toggle('connected', !cloudIsAnonymous);
+}
+async function connectAccount() {
+    if (!cloud) {
+        cloudMessage('<strong>Conexão indisponível.</strong> Configure o Supabase para vincular uma conta.');
+        return;
+    }
+    const email = window.prompt('Informe seu e-mail para salvar o progresso e acessar em outros dispositivos:');
+    if (!email)
+        return;
+    const clean = email.trim();
+    const result = cloudIsAnonymous
+        ? await cloud.auth.updateUser({ email: clean })
+        : await cloud.auth.signInWithOtp({ email: clean, options: { emailRedirectTo: window.location.href.split('#')[0] } });
+    if (result.error) {
+        cloudMessage(`<strong>Não foi possível enviar o acesso:</strong> ${esc(result.error.message)}`);
+        return;
+    }
+    cloudMessage('<strong>E-mail enviado.</strong> Abra o link recebido para tornar seu progresso permanente nesta e em outras máquinas.');
+}
 async function pullCloud() {
     if (!cloud || !cloudUserId)
         return;
@@ -113,7 +178,7 @@ async function pullCloud() {
     if (contestsResult.error)
         throw new Error(contestsResult.error.message);
     for (const raw of (contestsResult.data || [])) {
-        const id = String(raw.contest_id || ''), remote = { id, name: String(raw.name || id), examDate: String(raw.exam_date || ''), targetMinutes: numberValue(raw.target_minutes) || DEFAULT_TARGET, targetAccuracy: numberValue(raw.target_accuracy) || 100, specificWeight: numberValue(raw.specific_weight) || 2.5, generalWeight: numberValue(raw.general_weight) || 1, minQuestions: numberValue(raw.min_questions) || MIN_SAMPLE, updatedAt: String(raw.updated_at || new Date().toISOString()) }, local = state.contests[id];
+        const id = String(raw.contest_id || ''), remote = { id, name: String(raw.name || id), examDate: String(raw.exam_date || ''), targetMinutes: numberValue(raw.target_minutes) || DEFAULT_TARGET, targetAccuracy: numberValue(raw.target_accuracy) || 100, specificWeight: numberValue(raw.specific_weight) || 2.5, generalWeight: numberValue(raw.general_weight) || 1, minQuestions: numberValue(raw.min_questions) || MIN_SAMPLE, priority: raw.priority === 'secondary' ? 'secondary' : 'primary', updatedAt: String(raw.updated_at || new Date().toISOString()) }, local = state.contests[id];
         if (!local || new Date(remote.updatedAt).getTime() >= new Date(local.updatedAt).getTime())
             state.contests[id] = remote;
     }
@@ -146,6 +211,24 @@ async function pullCloud() {
         throw new Error(contentResult.error.message);
     if ((contentResult.data || []).length)
         state.content[state.activeContestId] = contentResult.data.sort((a, b) => numberValue(a.position) - numberValue(b.position)).map(cloudContent);
+    const eventsResult = await cloud.from('study_events').select('*').eq('user_id', cloudUserId).eq('contest_id', state.activeContestId).order('ended_at', { ascending: false }).limit(500);
+    if (!eventsResult.error) {
+        for (const raw of eventsResult.data || []) {
+            const id = String(raw.idempotency_key || raw.id || '');
+            if (!id || state.events.some((event) => event.id === id))
+                continue;
+            state.events.push({ id, contestId: String(raw.contest_id), topicId: raw.topic_id ? String(raw.topic_id) : undefined, type: String(raw.event_type), source: String(raw.source || 'cloud'), seconds: numberValue(raw.seconds), endedAt: String(raw.ended_at), metadata: (raw.metadata || {}), uploaded: true });
+        }
+    }
+    const attemptsResult = await cloud.from('study_question_attempts').select('*').eq('user_id', cloudUserId).eq('contest_id', state.activeContestId).order('attempted_at', { ascending: false }).limit(1000);
+    if (!attemptsResult.error) {
+        for (const raw of attemptsResult.data || []) {
+            const id = String(raw.idempotency_key || raw.id || '');
+            if (!id || state.questionAttempts.some((attempt) => attempt.id === id))
+                continue;
+            state.questionAttempts.push({ id, contestId: String(raw.contest_id), externalQuestionId: String(raw.external_question_id), cadernoId: raw.caderno_id ? String(raw.caderno_id) : undefined, correct: Boolean(raw.correct), attemptedAt: String(raw.attempted_at), durationSeconds: raw.duration_seconds ? numberValue(raw.duration_seconds) : undefined, metadata: (raw.metadata || {}), uploaded: true });
+        }
+    }
 }
 async function syncCloud() {
     if (!cloud || !cloudUserId || cloudSyncBusy)
@@ -153,10 +236,19 @@ async function syncCloud() {
     cloudSyncBusy = true;
     try {
         const contest = activeContest();
-        const contestRow = { user_id: cloudUserId, contest_id: contest.id, name: contest.name, exam_date: contest.examDate || null, target_minutes: contest.targetMinutes, target_accuracy: contest.targetAccuracy, specific_weight: contest.specificWeight, general_weight: contest.generalWeight, min_questions: contest.minQuestions, updated_at: contest.updatedAt };
+        const contestRows = Object.values(state.contests).map((item) => ({ user_id: cloudUserId, contest_id: item.id, name: item.name, exam_date: item.examDate || null, target_minutes: item.targetMinutes, target_accuracy: item.targetAccuracy, specific_weight: item.specificWeight, general_weight: item.generalWeight, min_questions: item.minQuestions, priority: item.id === state.activeContestId ? 'primary' : 'secondary', updated_at: item.updatedAt }));
+        // Rebaixa os secundários antes de promover o concurso ativo; isso respeita a regra de foco único.
+        const secondaryRows = contestRows.filter((row) => row.priority === 'secondary');
+        if (secondaryRows.length) {
+            const secondaryResult = await cloud.from('study_contests').upsert(secondaryRows, { onConflict: 'user_id,contest_id' });
+            if (secondaryResult.error && !/column .*priority.* does not exist/i.test(secondaryResult.error.message || ''))
+                throw new Error(secondaryResult.error.message);
+        }
+        const contestRow = contestRows.find((row) => row.contest_id === state.activeContestId);
         let contestResult = await cloud.from('study_contests').upsert(contestRow, { onConflict: 'user_id,contest_id' });
-        if (contestResult.error && /target_accuracy/i.test(contestResult.error.message || '')) {
+        if (contestResult.error && /(target_accuracy|priority)/i.test(contestResult.error.message || '')) {
             delete contestRow.target_accuracy;
+            delete contestRow.priority;
             contestResult = await cloud.from('study_contests').upsert(contestRow, { onConflict: 'user_id,contest_id' });
         }
         if (contestResult.error)
@@ -173,6 +265,24 @@ async function syncCloud() {
             currentDay().sessions.forEach((session) => { if (!session.uploaded)
                 session.uploaded = true; });
         }
+        const pendingEvents = state.events.filter((event) => !event.uploaded && event.contestId === state.activeContestId).map((event) => ({ user_id: cloudUserId, contest_id: event.contestId, topic_id: event.topicId || null, event_type: event.type, source: event.source, ended_at: event.endedAt, seconds: event.seconds, metadata: event.metadata || {}, idempotency_key: event.id }));
+        if (pendingEvents.length) {
+            const eventsResult = await cloud.from('study_events').upsert(pendingEvents, { onConflict: 'user_id,idempotency_key', ignoreDuplicates: true });
+            if (eventsResult.error && !/relation .*study_events.* does not exist/i.test(eventsResult.error.message || ''))
+                throw new Error(eventsResult.error.message);
+            if (!eventsResult.error)
+                state.events.forEach((event) => { if (event.contestId === state.activeContestId)
+                    event.uploaded = true; });
+        }
+        const pendingAttempts = state.questionAttempts.filter((attempt) => !attempt.uploaded && attempt.contestId === state.activeContestId).map((attempt) => ({ user_id: cloudUserId, contest_id: attempt.contestId, source: 'tec', external_question_id: attempt.externalQuestionId, caderno_id: attempt.cadernoId || null, correct: attempt.correct, duration_seconds: attempt.durationSeconds || null, attempted_at: attempt.attemptedAt, metadata: attempt.metadata || {}, idempotency_key: attempt.id }));
+        if (pendingAttempts.length) {
+            const attemptsResult = await cloud.from('study_question_attempts').upsert(pendingAttempts, { onConflict: 'user_id,idempotency_key', ignoreDuplicates: true });
+            if (attemptsResult.error && !/relation .*study_question_attempts.* does not exist/i.test(attemptsResult.error.message || ''))
+                throw new Error(attemptsResult.error.message);
+            if (!attemptsResult.error)
+                state.questionAttempts.forEach((attempt) => { if (attempt.contestId === state.activeContestId)
+                    attempt.uploaded = true; });
+        }
         const progressRows = Object.entries(state.contentProgress || {}).filter(([key]) => key.startsWith(`${state.activeContestId}::`)).map(([, progress]) => ({ user_id: cloudUserId, contest_id: state.activeContestId, content_code: progress.code, player: progress.player, position_seconds: progress.seconds, completed: progress.completed, updated_at: progress.updatedAt }));
         if (progressRows.length) {
             const progressResult = await cloud.from('study_content_progress').upsert(progressRows, { onConflict: 'user_id,contest_id,content_code' });
@@ -185,7 +295,7 @@ async function syncCloud() {
             if (contentResult.error)
                 throw new Error(contentResult.error.message);
         }
-        await cloud.from('study_sync_runs').insert({ user_id: cloudUserId, contest_id: state.activeContestId, source: 'dashboard', record_count: rows.length });
+        await cloud.from('study_sync_runs').insert({ user_id: cloudUserId, contest_id: state.activeContestId, source: 'nexame-dashboard', record_count: rows.length + pendingEvents.length + pendingAttempts.length });
         state.sync = { at: new Date().toISOString(), source: 'Supabase · nuvem' };
         localStorage.setItem(KEY, JSON.stringify(state));
         render();
@@ -207,19 +317,26 @@ async function initCloud() {
         if (!session)
             session = (await cloud.auth.signInAnonymously()).data?.session;
         cloudUserId = session?.user?.id || '';
+        cloudUserEmail = session?.user?.email || '';
+        cloudIsAnonymous = Boolean(session?.user?.is_anonymous || !cloudUserEmail);
         if (!cloudUserId)
             throw new Error('Não foi possível criar a sessão anônima.');
+        await cloud.from('profiles').upsert({ id: cloudUserId, display_name: cloudUserEmail ? cloudUserEmail.split('@')[0] : null }, { onConflict: 'id' });
         await pullCloud();
         state.sync = { at: new Date().toISOString(), source: 'Supabase · conectado' };
         localStorage.setItem(KEY, JSON.stringify(state));
         render();
+        renderAccount();
         await syncCloud();
     }
     catch (error) {
         cloud = null;
         cloudUserId = '';
+        cloudUserEmail = '';
+        cloudIsAnonymous = true;
         cloudMessage(`<strong>Modo local:</strong> não foi possível conectar ao Supabase (${esc(error instanceof Error ? error.message : error)}).`);
         render();
+        renderAccount();
     }
 }
 function accuracyBands() { const target = activeContest().targetAccuracy || 100; return { critical: Math.max(50, target - 30), recovery: Math.max(60, target - 20), consolidation: Math.max(70, target - 10), target }; }
@@ -372,6 +489,7 @@ function activateContest(id) {
         return;
     if (timerRunning)
         pauseTimer('contest-switch');
+    Object.values(state.contests).forEach((contest) => { contest.priority = contest.id === id ? 'primary' : 'secondary'; contest.updatedAt = new Date().toISOString(); });
     state.activeContestId = id;
     state.targetMinutes = activeContest().targetMinutes;
     currentDay();
@@ -386,7 +504,8 @@ function createContestFromForm(event) {
     const form = new FormData(event.currentTarget), name = String(form.get('name') || '').trim();
     if (!name)
         return;
-    const id = contestIdFromName(name), contest = { id, name, examDate: String(form.get('examDate') || ''), targetMinutes: Math.max(30, Math.min(960, Number(form.get('targetMinutes')) || DEFAULT_TARGET)), targetAccuracy: Math.max(50, Math.min(100, Number(form.get('targetAccuracy')) || 100)), specificWeight: Math.max(.1, Number(form.get('specificWeight')) || 2.5), generalWeight: Math.max(.1, Number(form.get('generalWeight')) || 1), minQuestions: Math.max(1, Math.min(100, Number(form.get('minQuestions')) || MIN_SAMPLE)), updatedAt: new Date().toISOString() };
+    const id = contestIdFromName(name), contest = { id, name, examDate: String(form.get('examDate') || ''), targetMinutes: Math.max(30, Math.min(960, Number(form.get('targetMinutes')) || DEFAULT_TARGET)), targetAccuracy: Math.max(50, Math.min(100, Number(form.get('targetAccuracy')) || 100)), specificWeight: Math.max(.1, Number(form.get('specificWeight')) || 2.5), generalWeight: Math.max(.1, Number(form.get('generalWeight')) || 1), minQuestions: Math.max(1, Math.min(100, Number(form.get('minQuestions')) || MIN_SAMPLE)), priority: 'primary', updatedAt: new Date().toISOString() };
+    Object.values(state.contests).forEach((item) => { item.priority = 'secondary'; item.updatedAt = new Date().toISOString(); });
     state.contests[id] = contest;
     state.activeContestId = id;
     state.targetMinutes = contest.targetMinutes;
@@ -398,7 +517,7 @@ function createContestFromForm(event) {
     if (cloud)
         void syncCloud();
 }
-function render() { const contest = activeContest(), bands = accuracyBands(), list = ranked(), evaluated = list.filter((x) => x.d.eligible), recovery = evaluated.filter((x) => x.d.raw < bands.recovery), seconds = currentDay().seconds; $('#todayLabel').textContent = `${new Date(`${today}T12:00:00`).toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })} · ${contest.name}`; renderContestControls(); $('#targetMinutes').value = String(state.targetMinutes); $('#goalAccuracy').value = String(contest.targetAccuracy); $('#metricTime').textContent = fmtSeconds(seconds, true); $('#metricTimeSub').textContent = `${Math.min(100, Math.round(100 * seconds / (state.targetMinutes * 60)))}% da meta de ${state.targetMinutes} min`; $('#dayProgress').style.width = `${Math.min(100, 100 * seconds / (state.targetMinutes * 60))}%`; $('#metricCadernos').textContent = String(evaluated.length); $('#metricCadernosSub').textContent = `${list.length} cadastrados · mínimo de ${contest.minQuestions} questões`; $('#metricRecovery').textContent = String(recovery.length); $('#metricRecoverySub').textContent = `abaixo de ${bands.recovery}% · objetivo ${bands.target}%`; const sync = state.sync?.at; $('#metricSync').textContent = sync ? fmtDate(sync) : 'Nunca'; $('#metricSyncSub').textContent = state.sync?.source || 'dados locais'; $('#syncDate').textContent = sync ? fmtDate(sync) : 'nunca'; $('#syncBadge').textContent = state.sync ? 'ATUALIZADO' : 'LOCAL'; $('#syncBadge').className = `badge ${state.sync ? 'good' : 'neutral'}`; renderDecision(list); renderNext(list[0]); renderDailyPlan(list); renderRoadmap(); renderTable(list); renderHud(list); renderTimer(); }
+function render() { const contest = activeContest(), bands = accuracyBands(), list = ranked(), evaluated = list.filter((x) => x.d.eligible), recovery = evaluated.filter((x) => x.d.raw < bands.recovery), seconds = currentDay().seconds; $('#todayLabel').textContent = `${new Date(`${today}T12:00:00`).toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })} · ${contest.name}`; renderContestControls(); $('#targetMinutes').value = String(state.targetMinutes); $('#goalAccuracy').value = String(contest.targetAccuracy); $('#metricTime').textContent = fmtSeconds(seconds, true); $('#metricTimeSub').textContent = `${Math.min(100, Math.round(100 * seconds / (state.targetMinutes * 60)))}% da meta de ${state.targetMinutes} min`; $('#dayProgress').style.width = `${Math.min(100, 100 * seconds / (state.targetMinutes * 60))}%`; $('#metricCadernos').textContent = String(evaluated.length); $('#metricCadernosSub').textContent = `${list.length} cadastrados · mínimo de ${contest.minQuestions} questões`; $('#metricRecovery').textContent = String(recovery.length); $('#metricRecoverySub').textContent = `abaixo de ${bands.recovery}% · objetivo ${bands.target}%`; const sync = state.sync?.at; $('#metricSync').textContent = sync ? fmtDate(sync) : 'Nunca'; $('#metricSyncSub').textContent = state.sync?.source || 'dados locais'; $('#syncDate').textContent = sync ? fmtDate(sync) : 'nunca'; $('#syncBadge').textContent = state.sync ? 'ATUALIZADO' : 'LOCAL'; $('#syncBadge').className = `badge ${state.sync ? 'good' : 'neutral'}`; renderDecision(list); renderNext(list[0]); renderDailyPlan(list); renderRoadmap(); renderTable(list); renderHud(list); renderTimer(); renderAccount(); }
 function focused() { return document.visibilityState === 'visible' && (document.hasFocus() || document.activeElement?.tagName === 'IFRAME'); }
 function timerLoop() { if (!timerRunning)
     return; const now = performance.now(); if (focused() && timerLast)
@@ -411,8 +530,10 @@ function pauseTimer(reason = 'manual') { if (reason === 'manual' || reason === '
     manualPause = true; if (!timerRunning)
     return; timerLoop(); timerRunning = false; if (timerTick)
     window.clearInterval(timerTick); timerTick = null; if (pendingSessionSeconds >= 1) {
-    currentDay().seconds += Math.round(pendingSessionSeconds);
-    currentDay().sessions.push({ type: $('#sessionType').value, seconds: Math.round(pendingSessionSeconds), endedAt: new Date().toISOString(), reason });
+    const seconds = Math.round(pendingSessionSeconds), type = $('#sessionType').value;
+    currentDay().seconds += seconds;
+    currentDay().sessions.push({ type, seconds, endedAt: new Date().toISOString(), reason });
+    recordEvent(eventTypeForSession(type), reason === 'player' ? 'youtube-embed' : 'nexame', seconds, { reason });
     pendingSessionSeconds = 0;
     saveState();
 } render(); }
@@ -463,13 +584,22 @@ async function pullLocalSnapshot() {
         if (!response.ok)
             throw new Error(`HTTP ${response.status}`);
         const payload = await response.json();
-        if (!Array.isArray(payload.cadernos) || !payload.cadernos.length) {
+        if ((!Array.isArray(payload.cadernos) || !payload.cadernos.length) && !(payload.questionAttempts || []).length) {
             $('#syncMessage').innerHTML = '<strong>Ponte ativa.</strong> Aguardando uma página de resultados do TEC.';
             return true;
         }
         if (payload.generatedAt && payload.generatedAt === lastLocalSnapshotAt)
             return true;
-        importRecords(payload, 'ponte local');
+        if ((payload.cadernos || []).length)
+            importRecords(payload, 'ponte TEC automática');
+        for (const attempt of payload.questionAttempts || []) {
+            if (!attempt.id || typeof attempt.correct !== 'boolean')
+                continue;
+            recordQuestionAttempt({ externalQuestionId: String(attempt.id), cadernoId: attempt.cadernoId, correct: attempt.correct, attemptedAt: attempt.attemptedAt || payload.generatedAt || new Date().toISOString(), durationSeconds: attempt.durationSeconds, metadata: { topic: attempt.topic || '' } });
+        }
+        if ((payload.questionAttempts || []).length)
+            recordEvent('question_session', 'tec-extension', 0, { attempts: payload.questionAttempts.length });
+        saveState();
         lastLocalSnapshotAt = payload.generatedAt || new Date().toISOString();
         return true;
     }
@@ -490,6 +620,7 @@ $('#newContest').addEventListener('click', () => { $('#contestFormWrap').hidden 
 $('#cancelContest').addEventListener('click', () => { $('#contestFormWrap').hidden = true; });
 $('#contestForm').addEventListener('submit', createContestFromForm);
 document.querySelector('#settingsNav')?.addEventListener('click', () => { document.querySelector('[data-view="dashboard"]')?.click(); $('#settingsArea').scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+document.querySelector('#accountButton')?.addEventListener('click', () => { void connectAccount(); });
 $('#recalc').addEventListener('click', () => { render(); $('#syncMessage').innerHTML = '<strong>Plano recalculado.</strong> A prioridade considera peso, acurácia, recência e erros repetidos.'; });
 $('#export').addEventListener('click', exportData);
 void pullLocalSnapshot();

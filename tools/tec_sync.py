@@ -65,10 +65,22 @@ def read_source(path: Path):
     raise ValueError("JSON sem uma lista cadernos/data/items/results")
 
 
-def write_snapshot(records, output: Path, source: str) -> dict:
-    if not records:
-        raise ValueError("O payload não contém cadernos")
-    payload = {"version": 1, "source": source, "generatedAt": now_iso(), "cadernos": [normalize(row, i) for i, row in enumerate(records)]}
+def normalize_attempt(raw: dict) -> dict | None:
+    identifier = str(raw.get("id", raw.get("questionId", ""))).strip()
+    correct = raw.get("correct")
+    if not identifier or not isinstance(correct, bool):
+        return None
+    return {"id": identifier, "cadernoId": str(raw.get("cadernoId", "")).strip() or None,
+            "correct": correct, "attemptedAt": raw.get("attemptedAt") or now_iso(),
+            "durationSeconds": int(number(raw.get("durationSeconds", 0))) or None,
+            "topic": str(raw.get("topic", ""))[:240]}
+
+
+def write_snapshot(records, output: Path, source: str, attempts=None) -> dict:
+    if not records and not attempts:
+        raise ValueError("O payload não contém cadernos nem tentativas")
+    normalized_attempts = [item for item in (normalize_attempt(row) for row in (attempts or [])) if item]
+    payload = {"version": 2, "source": source, "generatedAt": now_iso(), "cadernos": [normalize(row, i) for i, row in enumerate(records)], "questionAttempts": normalized_attempts}
     output.parent.mkdir(parents=True, exist_ok=True)
     temporary = output.with_suffix(output.suffix + ".tmp")
     temporary.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -101,9 +113,10 @@ class CORSHandler(SimpleHTTPRequestHandler):
             length = int(self.headers.get("Content-Length", "0"))
             body = json.loads(self.rfile.read(length).decode("utf-8"))
             records = body if isinstance(body, list) else next((body.get(key) for key in ("cadernos", "data", "items", "results") if isinstance(body.get(key), list)), [])
+            attempts = body.get("questionAttempts", []) if isinstance(body, dict) and isinstance(body.get("questionAttempts"), list) else []
             source = str(body.get("source", "tec-extension")) if isinstance(body, dict) else "tec-extension"
-            payload = write_snapshot(records, self.server.snapshot_path, source)
-            response = json.dumps({"ok": True, "count": len(payload["cadernos"])}).encode("utf-8")
+            payload = write_snapshot(records, self.server.snapshot_path, source, attempts)
+            response = json.dumps({"ok": True, "count": len(payload["cadernos"]), "attempts": len(payload["questionAttempts"])}).encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(response)))
@@ -117,7 +130,7 @@ def serve(path: Path, port: int):
     path = path.resolve()
     if not path.exists():
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps({"version": 1, "source": "tec-extension", "generatedAt": now_iso(), "cadernos": []}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        path.write_text(json.dumps({"version": 2, "source": "tec-extension", "generatedAt": now_iso(), "cadernos": [], "questionAttempts": []}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     directory = path.parent
 
     class Handler(CORSHandler):

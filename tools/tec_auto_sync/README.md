@@ -1,6 +1,6 @@
-# Sincronização automática do TEC
+# Nexame — sincronização automática do TEC
 
-Esta extensão não faz login e não recebe senha. Você entra normalmente no TEC; enquanto uma página autenticada estiver aberta, ela lê apenas as estatísticas visíveis dos cadernos e envia os dados para `http://127.0.0.1:8765/ingest`.
+Esta extensão não faz login e não recebe senha. Você entra normalmente no TEC; enquanto uma página autenticada estiver aberta, ela lê as estatísticas visíveis dos cadernos e o resultado que a própria página exibe para uma questão. Ela não coleta enunciados, comentários ou credenciais e envia somente esses metadados para `http://127.0.0.1:8765/ingest`.
 
 ## Configuração única
 

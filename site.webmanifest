@@ -1,0 +1,13 @@
+{
+  "name": "Nexame — estudos adaptativos",
+  "short_name": "Nexame",
+  "description": "Seu próximo passo, decidido por dados.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#081423",
+  "theme_color": "#4f46e5",
+  "icons": [
+    { "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "assets/brand/nexame-mark.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

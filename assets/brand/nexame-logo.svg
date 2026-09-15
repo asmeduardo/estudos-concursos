@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 430 128" role="img" aria-labelledby="title desc">
+  <title id="title">Nexame</title>
+  <desc id="desc">Nexame, seu próximo passo decidido por dados.</desc>
+  <defs><linearGradient id="g" x1="16" y1="112" x2="112" y2="16" gradientUnits="userSpaceOnUse"><stop stop-color="#4f46e5"/><stop offset="1" stop-color="#7c3aed"/></linearGradient></defs>
+  <path d="M23 105V35c0-8.8 10.8-13 16.7-6.5l32.7 36.1 22.2-32.1-8.9-2.4 25.8-8.9-1.6 27.2-7.9-6.7-23.4 33.8c-3.1 4.5-9.6 5-13.3.9L39 47.1V105c0 4.4-3.6 8-8 8s-8-3.6-8-8Z" fill="url(#g)"/>
+  <text x="148" y="82" fill="#f8fafc" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="58" font-weight="760" letter-spacing="-2">Nexame</text>
+</svg>
