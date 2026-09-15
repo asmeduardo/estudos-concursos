@@ -126,7 +126,7 @@ function renderSignupDetails(email) {
         return;
     } if (!auth)
         return; buttonBusy(button, true, 'Concluindo…'); const result = await auth.auth.updateUser({ password, data: { display_name: String(data.get('name')).trim() } }); if (result.error) {
-        const message = result.error.status === 422 || result.error.code === 'weak_password' ? 'Essa senha foi recusada pelo Supabase. Use uma senha forte e diferente de outras senhas já usadas.' : result.error.message || 'Não foi possível concluir o cadastro. Tente novamente.';
+        const message = result.error.status === 422 || result.error.code === 'weak_password' ? 'Escolha uma senha mais forte, com pelo menos 8 caracteres, letras maiúsculas, minúsculas e números.' : 'Não foi possível concluir o cadastro. Tente novamente.';
         notice(message, 'error');
         buttonBusy(button, false, 'Concluir cadastro');
         return;
