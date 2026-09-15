@@ -1,92 +1,49 @@
 (function () {
   'use strict';
-  // Na SPA, peça ao service worker o último snapshot armazenado localmente.
-  if (location.origin === 'https://asmeduardo.github.io') {
+  const APP_ORIGIN = 'https://asmeduardo.github.io';
+  if (location.origin === APP_ORIGIN) {
     let lastSnapshot = '';
-    const requestSnapshot = () => chrome.runtime.sendMessage({ type: 'get_snapshot' }, (result) => {
+    const request = () => chrome.runtime.sendMessage({ type: 'get_snapshot' }, (result) => {
       if (chrome.runtime.lastError || !result?.ok || !result.snapshot) return;
       const stamp = String(result.snapshot.generatedAt || '');
       if (stamp === lastSnapshot) return;
       lastSnapshot = stamp;
-      window.postMessage({ type: 'nexame-tec-snapshot', snapshot: result.snapshot }, location.origin);
+      window.postMessage({ type: 'nexame-platform-snapshot', snapshot: result.snapshot }, location.origin);
     });
-    requestSnapshot();
-    setInterval(requestSnapshot, 30_000);
-    return;
+    request(); setInterval(request, 30000); return;
   }
-  let lastPayload = '';
-  let collectTimer = null;
-
-  function number(value) {
-    const match = String(value || '').match(/\d+(?:[.,]\d+)?/);
-    return match ? Number(match[0].replace(',', '.')) : 0;
+  const adapters = globalThis.NexameAdapters || {};
+  const adapter = Object.values(adapters).find((item) => item.matches(location.hostname));
+  if (!adapter) return;
+  let lastPayload = '', timer = null;
+  const number = (value) => { const match = String(value || '').match(/\d+(?:[.,]\d+)?/); return match ? Number(match[0].replace(',', '.')) : 0; };
+  const text = (node) => (node?.innerText || node?.textContent || '').replace(/\s+/g, ' ').trim();
+  const idFor = (href, index) => adapter.id(href || location.href, index);
+  const summary = (raw) => ({
+    attempted: number((raw.match(/(\d+)\s*(?:quest(?:ões|oes)|resolvid[asoa]*|respondid[asoa]*)/i) || [])[1]),
+    correct: number((raw.match(/(\d+)\s*(?:acertos?|certas?|você\s+acertou)/i) || [])[1]),
+    incorrect: number((raw.match(/(\d+)\s*(?:erros?|erradas?|você\s+errou)/i) || [])[1])
+  });
+  function record(link, index) {
+    const href = link?.href || location.href, raw = text(link === document.body ? document.body : (link.closest('article,li,tr,[class*="card"],[class*="caderno"],section') || link.parentElement || document.body)), stats = summary(raw);
+    return { id: idFor(href, index), name: link === document.body ? (document.title || `Caderno ${idFor(href, index)}`) : (text(link) || document.title), subject: /portugu|ingl[eê]s|matem|racioc|rlm|legisla|atualidade|geral/i.test(raw) ? 'general' : 'specific', topic: link === document.body ? (document.title || 'Resultados do caderno') : raw.slice(0, 180), attempted: stats.attempted, correct: stats.correct, incorrect: stats.incorrect, sourcePlatform: adapter.platform, sourceUrl: href };
   }
-
-  function text(node) { return (node?.innerText || node?.textContent || '').replace(/\s+/g, ' ').trim(); }
-
-  function recordFrom(link, index) {
-    const href = link.href || '';
-    const idMatch = href.match(/cadernos\/(\d+)/i) || location.href.match(/cadernos\/(\d+)/i);
-    const id = idMatch ? idMatch[1] : `tec-${index}`;
-    const card = link.closest('article,li,tr,[class*="card"],[class*="Card"],[class*="caderno"],[class*="Caderno"]') || link.parentElement;
-    const raw = text(card || document.body);
-    const name = link === document.body ? (document.title || `Caderno TEC ${id}`) : (text(link) || document.title || `Caderno TEC ${id}`);
-    const attemptedMatch = raw.match(/(\d+)\s*(?:quest(?:ões|oes)|respondid(?:as|os)|resolvid(?:as|os))/i);
-    const correctMatch = raw.match(/(\d+)\s*(?:acertos?|certas?)/i);
-    const accuracyMatch = raw.match(/(\d+(?:[,.]\d+)?)\s*%/);
-    return { id, name, subject: /portugu|ingl[eê]s|matem|racioc|rlm|legisla|atualidade|geral/i.test(raw) ? 'general' : 'specific', topic: link === document.body ? (document.title || 'Resultados do caderno') : raw.slice(0, 240), attempted: attemptedMatch ? number(attemptedMatch[1]) : 0, correct: correctMatch ? number(correctMatch[1]) : 0, accuracy: accuracyMatch ? number(accuracyMatch[1]) : 0, sourceUrl: href };
-  }
-
   function questionAttempt() {
-    const match = location.pathname.match(/questoes\/(?:questao\/)?(\d+)/i);
-    if (!match) return null;
-    const raw = text(document.body);
-    // Só registra quando a própria página tornou o resultado visível. Não lê enunciado nem comentário.
-    const correct = /(?:você|voce)\s+acertou|resposta\s+correta/i.test(raw);
-    const wrong = /(?:você|voce)\s+errou|resposta\s+incorreta/i.test(raw);
-    if (!correct && !wrong) return null;
-    const caderno = location.href.match(/cadernos\/(\d+)/i);
-    return { id: match[1], cadernoId: caderno ? caderno[1] : undefined, correct, attemptedAt: new Date().toISOString(), topic: document.title.slice(0, 180) };
+    const match = location.pathname.match(/(?:quest(?:oes|ões)|question)/i); if (!match) return null;
+    const raw = text(document.body), correct = /(?:você|voce)\s+acertou|resposta\s+correta/i.test(raw), wrong = /(?:você|voce)\s+errou|resposta\s+incorreta/i.test(raw); if (!correct && !wrong) return null;
+    const id = (location.pathname.match(/(?:quest(?:oes|ões)|question)[\/-]([a-z0-9-]+)/i) || [])[1] || location.href;
+    return { id: `${adapter.platform}:${id}`, correct, attemptedAt: new Date().toISOString(), topic: document.title.slice(0, 180), sourcePlatform: adapter.platform };
   }
-
   function collect() {
-    const links = [...document.querySelectorAll('a[href*="/questoes/cadernos/"]')];
-    const records = (links.length ? links : [document.body]).map((node, index) => recordFrom(node, index));
-    let unique = [...new Map(records.map((row) => [row.id, row])).values()].filter((row) => row.attempted || row.correct || row.accuracy);
-    // Algumas versões do TEC renderizam o caderno sem links detectáveis.
-    // Ainda assim, a própria página contém o resumo de resolvidas/acertos.
-    if (!unique.length && /\/questoes\/cadernos\//i.test(location.pathname)) {
-      const raw = text(document.body);
-      const attempted = raw.match(/(\d+)\s*(?:resolvidas?|respondidas?)/i);
-      const correct = raw.match(/(\d+)\s*(?:acertos?|certas?)/i);
-      const incorrect = raw.match(/(\d+)\s*(?:erros?|erradas?)/i);
-      if (attempted || correct || incorrect) unique = [{ id: (location.pathname.match(/cadernos\/(\d+)/i) || [])[1] || 'tec-caderno', name: document.title || 'Caderno TEC', subject: /portugu|ingl[eê]s|matem|racioc|rlm|legisla|atualidade/i.test(raw) ? 'general' : 'specific', topic: document.title || 'Resultados do caderno', attempted: attempted ? number(attempted[1]) : 0, correct: correct ? number(correct[1]) : 0, accuracy: 0, sourceUrl: location.href }];
-    }
-    if (!unique.length) { badge('Nexame · aguardando resultados'); return; }
-    const attempt = questionAttempt();
-    const stable = JSON.stringify({ unique, attempt: attempt ? `${attempt.id}:${attempt.correct}` : '' });
-    if (stable === lastPayload) return;
-    lastPayload = stable;
-    const payload = JSON.stringify({ source: 'nexame-connector', generatedAt: new Date().toISOString(), cadernos: unique, questionAttempts: attempt ? [attempt] : [] });
-    chrome.runtime.sendMessage({ type: 'ingest', payload }, (result) => { if (chrome.runtime.lastError || !result?.ok) { badge('Nexame · atualização pendente'); return; } badge(`Nexame atualizado · ${unique.length || (attempt ? 1 : 0)} registro(s)`); });
+    if (!adapter.cadernoPath.test(location.pathname)) return;
+    const links = [...document.querySelectorAll(adapter.links)], rows = (links.length ? links : [document.body]).map(record), unique = [...new Map(rows.map((row) => [row.id, row])).values()].filter((row) => row.attempted || row.correct || row.incorrect);
+    if (!unique.length) return;
+    const attempt = questionAttempt(), payload = JSON.stringify({ version: 3, source: 'nexame-connector', sourcePlatform: adapter.platform, generatedAt: new Date().toISOString(), cadernos: unique, questionAttempts: attempt ? [attempt] : [] });
+    if (payload === lastPayload) return; lastPayload = payload;
+    chrome.runtime.sendMessage({ type: 'ingest', payload }, (result) => { if (!chrome.runtime.lastError && result?.ok) badge(`Nexame atualizado · ${adapter.platform}`); });
   }
-
-  function badge(label) {
-    let node = document.getElementById('study-tec-sync-badge');
-    if (!node) { node = document.createElement('div'); node.id = 'study-tec-sync-badge'; node.style.cssText = 'position:fixed;right:14px;bottom:14px;z-index:2147483647;background:#0f766e;color:#ecfeff;padding:7px 10px;border-radius:8px;font:12px system-ui;box-shadow:0 2px 10px #0005'; document.body.appendChild(node); }
-    if (node.textContent !== label) node.textContent = label;
-  }
-
+  function badge(label) { let node = document.getElementById('nexame-connector-status'); if (!node) { node = document.createElement('div'); node.id = 'nexame-connector-status'; node.style.cssText = 'position:fixed;right:14px;bottom:14px;z-index:2147483647;background:#0f766e;color:#ecfeff;padding:7px 10px;border-radius:8px;font:12px system-ui;box-shadow:0 2px 10px #0005'; document.body.appendChild(node); } if (node.textContent !== label) node.textContent = label; }
   collect();
-  new MutationObserver((mutations) => {
-    // A própria badge é criada/atualizada pela extensão; ignorá-la evita um
-    // ciclo MutationObserver → collect → badge → MutationObserver.
-    const relevant = mutations.some((mutation) => {
-      const target = mutation.target instanceof Element ? mutation.target : mutation.target.parentElement;
-      return !target?.closest('#study-tec-sync-badge');
-    });
-    if (!relevant || collectTimer !== null) return;
-    collectTimer = setTimeout(() => { collectTimer = null; collect(); }, 400);
-  }).observe(document.documentElement, { childList: true, subtree: true });
-  setInterval(collect, 60_000);
+  new MutationObserver(() => { if (timer !== null) return; timer = setTimeout(() => { timer = null; collect(); }, 500); }).observe(document.documentElement, { childList: true, subtree: true });
+  setInterval(collect, 60000);
 })();

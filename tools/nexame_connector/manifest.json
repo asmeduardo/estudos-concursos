@@ -24,12 +24,14 @@
   "host_permissions": [
     "https://www.tecconcursos.com.br/*",
     "https://tecconcursos.com.br/*",
-    "https://asmeduardo.github.io/estudos-concursos/*"
+    "https://asmeduardo.github.io/estudos-concursos/*",
+    "https://www.qconcursos.com/*",
+    "https://qconcursos.com/*"
   ],
   "content_scripts": [
     {
-      "matches": ["https://www.tecconcursos.com.br/*", "https://tecconcursos.com.br/*", "https://asmeduardo.github.io/estudos-concursos/*"],
-      "js": ["content.js"],
+      "matches": ["https://www.tecconcursos.com.br/*", "https://tecconcursos.com.br/*", "https://www.qconcursos.com/*", "https://qconcursos.com/*", "https://asmeduardo.github.io/estudos-concursos/*"],
+      "js": ["adapters.js", "content.js"],
       "run_at": "document_idle"
     }
   ]

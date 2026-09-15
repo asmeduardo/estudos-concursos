@@ -3,6 +3,7 @@ type Status = 'good' | 'warn' | 'bad' | 'neutral';
 
 interface Caderno {
   id: string; contestId: string; name: string; subject: Subject; topic: string;
+  sourcePlatform?: string;
   attempted: number; correct: number; incorrect: number; repeatErrors: number;
   lastAttemptAt: string | null; updatedAt: string;
 }
@@ -125,7 +126,7 @@ function normalize(raw: Record<string, unknown>, index = 0): Caderno {
   const id = String(raw.id ?? raw.cadernoId ?? raw.codigo ?? `local-${index}-${name.toLowerCase().replace(/\W+/g, '-')}`);
   const area = String(raw.subject ?? raw.area ?? raw.disciplina ?? 'specific').toLowerCase();
   const subject: Subject = /geral|portugu|ingl[eê]s|matem|racioc|rlm|legisla|atualidade|conhecimentos gerais/.test(area) ? 'general' : 'specific';
-  return { id, contestId: String(raw.contestId ?? raw.contest_id ?? state.activeContestId), name, subject, topic: String(raw.topic ?? raw.assunto ?? ''), attempted: Math.max(0, attempted), correct: Math.max(0, Math.min(correct, attempted || correct)), incorrect: Math.max(0, numberValue(raw.incorrect ?? raw.erros) || attempted - correct), repeatErrors: numberValue(raw.repeatErrors ?? raw.errosRepetidos), lastAttemptAt: String(raw.lastAttemptAt ?? raw.ultimoEstudo ?? raw.lastAttempt ?? '') || null, updatedAt: new Date().toISOString() };
+  return { id, contestId: String(raw.contestId ?? raw.contest_id ?? state.activeContestId), name, subject, sourcePlatform: String(raw.sourcePlatform ?? raw.source_platform ?? ''), topic: String(raw.topic ?? raw.assunto ?? ''), attempted: Math.max(0, attempted), correct: Math.max(0, Math.min(correct, attempted || correct)), incorrect: Math.max(0, numberValue(raw.incorrect ?? raw.erros) || attempted - correct), repeatErrors: numberValue(raw.repeatErrors ?? raw.errosRepetidos), lastAttemptAt: String(raw.lastAttemptAt ?? raw.ultimoEstudo ?? raw.lastAttempt ?? '') || null, updatedAt: new Date().toISOString() };
 }
 
 function cloudConfigured(): boolean {
@@ -452,7 +453,7 @@ $('#timerToggle').addEventListener('click', () => timerRunning ? pauseTimer('man
 $('#clearCadernos').addEventListener('click', () => { if (confirm('Remover os cadernos e resultados deste concurso neste navegador?')) { Object.keys(state.cadernos).filter((key) => key.startsWith(`${state.activeContestId}::`)).forEach((key) => delete state.cadernos[key]); state.sync = null; saveState(); render(); } }); $('#cadernoForm').addEventListener('submit', (event) => { event.preventDefault(); const form = new FormData(event.currentTarget as HTMLFormElement), c = normalize({ id: `manual-${String(form.get('name')).toLowerCase().replace(/\W+/g, '-')}`, name: form.get('name'), subject: form.get('subject'), attempted: form.get('attempted'), correct: form.get('correct'), repeatErrors: form.get('repeatErrors'), lastAttemptAt: form.get('lastAttemptAt') }); state.cadernos[cadernoKey(c.id)] = c; state.sync = { at: new Date().toISOString(), source: `cadastro manual · ${contestLabel(state.activeContestId)}` }; saveState(); (event.currentTarget as HTMLFormElement).reset(); render(); });
 window.addEventListener('message', (event: MessageEvent<{ type?: string; playing?: boolean; player?: string; code?: string; seconds?: number; completed?: boolean; catalog?: ContentItem[]; snapshot?: { generatedAt?: string; cadernos?: unknown[]; questionAttempts?: Array<{ id?: string; cadernoId?: string; correct?: boolean; attemptedAt?: string; durationSeconds?: number; topic?: string }> } }>) => {
   if (event.origin !== window.location.origin) return;
-  if (event.data?.type === 'nexame-tec-snapshot' && event.data.snapshot) {
+  if (event.data?.type === 'nexame-platform-snapshot' && event.data.snapshot) {
     const payload = event.data.snapshot;
     if (payload.generatedAt && payload.generatedAt === lastExtensionSnapshotAt) return;
     lastExtensionSnapshotAt = payload.generatedAt || new Date().toISOString();

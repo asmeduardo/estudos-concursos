@@ -113,7 +113,7 @@ function normalize(raw, index = 0) {
     const id = String(raw.id ?? raw.cadernoId ?? raw.codigo ?? `local-${index}-${name.toLowerCase().replace(/\W+/g, '-')}`);
     const area = String(raw.subject ?? raw.area ?? raw.disciplina ?? 'specific').toLowerCase();
     const subject = /geral|portugu|ingl[eê]s|matem|racioc|rlm|legisla|atualidade|conhecimentos gerais/.test(area) ? 'general' : 'specific';
-    return { id, contestId: String(raw.contestId ?? raw.contest_id ?? state.activeContestId), name, subject, topic: String(raw.topic ?? raw.assunto ?? ''), attempted: Math.max(0, attempted), correct: Math.max(0, Math.min(correct, attempted || correct)), incorrect: Math.max(0, numberValue(raw.incorrect ?? raw.erros) || attempted - correct), repeatErrors: numberValue(raw.repeatErrors ?? raw.errosRepetidos), lastAttemptAt: String(raw.lastAttemptAt ?? raw.ultimoEstudo ?? raw.lastAttempt ?? '') || null, updatedAt: new Date().toISOString() };
+    return { id, contestId: String(raw.contestId ?? raw.contest_id ?? state.activeContestId), name, subject, sourcePlatform: String(raw.sourcePlatform ?? raw.source_platform ?? ''), topic: String(raw.topic ?? raw.assunto ?? ''), attempted: Math.max(0, attempted), correct: Math.max(0, Math.min(correct, attempted || correct)), incorrect: Math.max(0, numberValue(raw.incorrect ?? raw.erros) || attempted - correct), repeatErrors: numberValue(raw.repeatErrors ?? raw.errosRepetidos), lastAttemptAt: String(raw.lastAttemptAt ?? raw.ultimoEstudo ?? raw.lastAttempt ?? '') || null, updatedAt: new Date().toISOString() };
 }
 function cloudConfigured() {
     const cfg = window.__SUPABASE_CONFIG__;
@@ -648,7 +648,7 @@ $('#cadernoForm').addEventListener('submit', (event) => { event.preventDefault()
 window.addEventListener('message', (event) => {
     if (event.origin !== window.location.origin)
         return;
-    if (event.data?.type === 'nexame-tec-snapshot' && event.data.snapshot) {
+    if (event.data?.type === 'nexame-platform-snapshot' && event.data.snapshot) {
         const payload = event.data.snapshot;
         if (payload.generatedAt && payload.generatedAt === lastExtensionSnapshotAt)
             return;

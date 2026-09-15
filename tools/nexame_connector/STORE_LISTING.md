@@ -6,17 +6,17 @@ Nexame — sincronização TEC
 
 ## Descrição curta
 
-Sincronize estatísticas visíveis dos seus cadernos do TEC com o Nexame, sem exportações, senhas ou servidor local.
+Sincronize estatísticas visíveis das suas plataformas de questões com o Nexame, sem exportações, senhas ou servidor local.
 
 ## Descrição detalhada
 
-O Nexame ajuda você a acompanhar o desempenho nos estudos. Esta extensão lê somente resultados que já estão visíveis em páginas autenticadas do TEC, como cadernos, acertos, erros e resultados de questões, e entrega esses dados ao painel Nexame.
+O Nexame ajuda você a acompanhar o desempenho nos estudos. Esta extensão lê somente resultados que já estão visíveis em páginas autenticadas de plataformas compatíveis, como cadernos, acertos, erros e resultados de questões, e entrega esses dados ao painel Nexame.
 
 A extensão não faz login no TEC, não acessa senhas, cookies, comentários ou enunciados completos. Os dados ficam temporariamente no armazenamento local do navegador e podem ser removidos pelo popup a qualquer momento.
 
 ## Permissões justificadas
 
-- Acesso ao TEC: leitura de estatísticas exibidas pelo usuário.
+- Acesso às plataformas compatíveis: leitura de estatísticas exibidas pelo usuário.
 - Acesso ao Nexame: entrega do snapshot ao painel autenticado.
 - Armazenamento: guardar temporariamente o último snapshot para sincronização entre abas.
 
