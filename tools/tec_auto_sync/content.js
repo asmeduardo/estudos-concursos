@@ -51,8 +51,11 @@
     // Algumas versões do TEC renderizam o caderno sem links detectáveis.
     // Ainda assim, a própria página contém o resumo de resolvidas/acertos.
     if (!unique.length && /\/questoes\/cadernos\//i.test(location.pathname)) {
-      const fallback = recordFrom(document.body, 0);
-      if (fallback.attempted || fallback.correct || fallback.accuracy) unique = [fallback];
+      const raw = text(document.body);
+      const attempted = raw.match(/(\d+)\s*(?:resolvidas?|respondidas?)/i);
+      const correct = raw.match(/(\d+)\s*(?:acertos?|certas?)/i);
+      const incorrect = raw.match(/(\d+)\s*(?:erros?|erradas?)/i);
+      if (attempted || correct || incorrect) unique = [{ id: (location.pathname.match(/cadernos\/(\d+)/i) || [])[1] || 'tec-caderno', name: document.title || 'Caderno TEC', subject: /portugu|ingl[eê]s|matem|racioc|rlm|legisla|atualidade/i.test(raw) ? 'general' : 'specific', topic: raw.slice(0, 240), attempted: attempted ? number(attempted[1]) : 0, correct: correct ? number(correct[1]) : 0, accuracy: 0, sourceUrl: location.href }];
     }
     if (!unique.length) { badge('TEC aberto · aguardando resultados visíveis'); return; }
     const attempt = questionAttempt();
@@ -60,7 +63,7 @@
     if (stable === lastPayload) return;
     lastPayload = stable;
     const payload = JSON.stringify({ source: 'tec-extension', generatedAt: new Date().toISOString(), cadernos: unique, questionAttempts: attempt ? [attempt] : [] });
-    fetch(bridge, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload, mode: 'cors' }).then(() => badge(`TEC sincronizado · ${unique.length || (attempt ? 1 : 0)}`)).catch(() => badge('TEC detectado · ponte desligada'));
+    fetch(bridge, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload, mode: 'cors' }).then((response) => { if (!response.ok) throw new Error(`HTTP ${response.status}`); badge(`TEC sincronizado · ${unique.length || (attempt ? 1 : 0)}`); }).catch(() => badge('TEC detectado · falha ao enviar'));
   }
 
   function badge(label) {
