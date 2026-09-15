@@ -423,6 +423,10 @@ function parseCSV(text: string): Record<string, unknown>[] { const rows: string[
 function importRecords(input: unknown, source: string): void { const records = Array.isArray(input) ? input : (input as { cadernos?: unknown[]; data?: unknown[]; items?: unknown[] })?.cadernos || (input as { data?: unknown[] })?.data || (input as { items?: unknown[] })?.items || []; if (!records.length) throw new Error('Não encontrei uma lista de cadernos no arquivo.'); records.forEach((raw, i) => { const c = normalize(raw as Record<string, unknown>, i), key = cadernoKey(c.id, c.contestId), old = state.cadernos[key]; state.cadernos[key] = old ? { ...old, ...c } : c; }); state.sync = { at: new Date().toISOString(), source: `${source} · ${records.length} cadernos · ${contestLabel(state.activeContestId)}` }; saveState(); render(); $('#syncMessage').innerHTML = `<strong>Importação concluída.</strong> ${records.length} registros processados para ${esc(contestLabel(state.activeContestId))}. O plano foi recalculado.`; }
 function readFile(file: File): void { const reader = new FileReader(); reader.onload = () => { try { const text = String(reader.result), input = file.name.toLowerCase().endsWith('.csv') ? parseCSV(text) : JSON.parse(text); importRecords(input, file.name); } catch (error) { $('#syncMessage').innerHTML = `<strong>Falha na importação:</strong> ${esc(error instanceof Error ? error.message : error)}`; } }; reader.readAsText(file); }
 async function pullLocalSnapshot(): Promise<boolean> {
+  // A ponte local é opcional. Não tente acessar localhost por padrão: além de
+  // não haver serviço na maioria dos dispositivos, isso gera erros de rede no
+  // console. A extensão pode habilitá-la definindo esta chave como "enabled".
+  if (localStorage.getItem('nexame.tecBridge') !== 'enabled') return false;
   try {
     const response = await fetch('http://127.0.0.1:8765/tec_sync.json', { cache: 'no-store' });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);

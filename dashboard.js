@@ -594,6 +594,11 @@ catch (error) {
     $('#syncMessage').innerHTML = `<strong>Falha na importação:</strong> ${esc(error instanceof Error ? error.message : error)}`;
 } }; reader.readAsText(file); }
 async function pullLocalSnapshot() {
+    // A ponte local é opcional. Não tente acessar localhost por padrão: além de
+    // não haver serviço na maioria dos dispositivos, isso gera erros de rede no
+    // console. A extensão pode habilitá-la definindo esta chave como "enabled".
+    if (localStorage.getItem('nexame.tecBridge') !== 'enabled')
+        return false;
     try {
         const response = await fetch('http://127.0.0.1:8765/tec_sync.json', { cache: 'no-store' });
         if (!response.ok)
