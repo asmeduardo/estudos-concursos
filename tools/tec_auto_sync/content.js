@@ -26,7 +26,7 @@
     const id = idMatch ? idMatch[1] : `tec-${index}`;
     const card = link.closest('article,li,tr,[class*="card"],[class*="Card"],[class*="caderno"],[class*="Caderno"]') || link.parentElement;
     const raw = text(card || document.body);
-    const name = text(link) || document.title || `Caderno TEC ${id}`;
+    const name = link === document.body ? (document.title || `Caderno TEC ${id}`) : (text(link) || document.title || `Caderno TEC ${id}`);
     const attemptedMatch = raw.match(/(\d+)\s*(?:quest(?:ões|oes)|respondid(?:as|os)|resolvid(?:as|os))/i);
     const correctMatch = raw.match(/(\d+)\s*(?:acertos?|certas?)/i);
     const accuracyMatch = raw.match(/(\d+(?:[,.]\d+)?)\s*%/);
