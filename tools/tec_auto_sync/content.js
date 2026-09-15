@@ -46,8 +46,14 @@
   function collect() {
     const links = [...document.querySelectorAll('a[href*="/questoes/cadernos/"]')];
     const records = (links.length ? links : [document.body]).map((node, index) => recordFrom(node, index));
-    const unique = [...new Map(records.map((row) => [row.id, row])).values()].filter((row) => row.attempted || row.correct || row.accuracy);
-    if (!unique.length) return;
+    let unique = [...new Map(records.map((row) => [row.id, row])).values()].filter((row) => row.attempted || row.correct || row.accuracy);
+    // Algumas versões do TEC renderizam o caderno sem links detectáveis.
+    // Ainda assim, a própria página contém o resumo de resolvidas/acertos.
+    if (!unique.length && /\/questoes\/cadernos\//i.test(location.pathname)) {
+      const fallback = recordFrom(document.body, 0);
+      if (fallback.attempted || fallback.correct || fallback.accuracy) unique = [fallback];
+    }
+    if (!unique.length) { badge('TEC aberto · aguardando resultados visíveis'); return; }
     const attempt = questionAttempt();
     const stable = JSON.stringify({ unique, attempt: attempt ? `${attempt.id}:${attempt.correct}` : '' });
     if (stable === lastPayload) return;
