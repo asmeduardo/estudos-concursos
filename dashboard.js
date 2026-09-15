@@ -247,7 +247,7 @@ async function syncCloud() {
                 state.events.forEach((event) => { if (event.contestId === state.activeContestId)
                     event.uploaded = true; });
         }
-        const pendingAttempts = state.questionAttempts.filter((attempt) => !attempt.uploaded && attempt.contestId === state.activeContestId).map((attempt) => ({ user_id: cloudUserId, contest_id: attempt.contestId, source: 'tec', external_question_id: attempt.externalQuestionId, caderno_id: attempt.cadernoId || null, correct: attempt.correct, duration_seconds: attempt.durationSeconds || null, attempted_at: attempt.attemptedAt, metadata: attempt.metadata || {}, idempotency_key: attempt.id }));
+        const pendingAttempts = state.questionAttempts.filter((attempt) => !attempt.uploaded && attempt.contestId === state.activeContestId).map((attempt) => ({ user_id: cloudUserId, contest_id: attempt.contestId, source: String(attempt.metadata?.sourcePlatform || 'connector'), external_question_id: attempt.externalQuestionId, caderno_id: attempt.cadernoId || null, correct: attempt.correct, duration_seconds: attempt.durationSeconds || null, attempted_at: attempt.attemptedAt, metadata: attempt.metadata || {}, idempotency_key: attempt.id }));
         if (pendingAttempts.length) {
             const attemptsResult = await cloud.from('study_question_attempts').upsert(pendingAttempts, { onConflict: 'user_id,idempotency_key', ignoreDuplicates: true });
             if (attemptsResult.error && !/relation .*study_question_attempts.* does not exist/i.test(attemptsResult.error.message || ''))
@@ -363,7 +363,7 @@ function readiness(list) { const measured = list.filter((item) => item.attempted
     return { estimate: 0, confidence: 0 }; return { estimate: measured.reduce((sum, item) => sum + item.d.smooth * item.attempted * (item.subject === 'specific' ? activeContest().specificWeight : activeContest().generalWeight), 0) / total, confidence: measured.reduce((sum, item) => sum + item.d.confidence * item.attempted, 0) / measured.reduce((sum, item) => sum + item.attempted, 0) }; }
 function renderDecision(list) { const target = $('#decisionText'), phaseBadge = $('#phaseBadge'); if (!target || !phaseBadge)
     return; const phase = studyPhase(), bands = accuracyBands(), studied = currentDay().seconds / 60, remaining = Math.max(0, Math.ceil(state.targetMinutes - studied)), accuracy = weightedAccuracy(list), forecast = readiness(list), recovery = list.filter((item) => item.d.eligible && item.d.raw < bands.recovery).length; phaseBadge.textContent = phase.label; phaseBadge.className = `badge ${phase.key === 'vespera' || phase.key === 'reta-final' ? 'warn' : phase.key === 'pre-edital' ? 'neutral' : 'good'}`; let title = '', action = ''; if (!list.length) {
-    title = 'Aguardando a primeira leitura automática do TEC';
+    title = 'Aguardando a primeira leitura automática das plataformas';
     action = 'Enquanto isso, o sistema mantém a trilha de conteúdo disponível e registra seu tempo nos players.';
 }
 else if (!remaining) {
@@ -376,7 +376,7 @@ else if (recovery) {
 }
 else if (!accuracy) {
     title = 'Ainda sem amostra suficiente de desempenho';
-    action = `Use ${remaining} min para cobrir a base e resolver questões FGV para calibrar o plano.`;
+    action = `Use ${remaining} min para cobrir a base e resolver questões novas para calibrar o plano.`;
 }
 else if (forecast.estimate >= bands.target && forecast.confidence >= .7) {
     title = `Objetivo de ${bands.target}% sustentado pela amostra`;
@@ -402,7 +402,7 @@ function dailyPlan(list = ranked()) {
     ['specific', 'general'].forEach((subject) => {
         const pool = list.filter((item) => item.subject === subject).slice(0, 4), fallback = subject === 'specific' ? 'Específicas — cobertura e recuperação' : 'Gerais — revisão e questões';
         if (!pool.length) {
-            blocks.push({ subject, topic: fallback, minutes: minutesBySubject[subject], mode: 'review', action: 'Adicionar resultados do TEC para calibrar', risk: 0 });
+            blocks.push({ subject, topic: fallback, minutes: minutesBySubject[subject], mode: 'review', action: 'Adicionar resultados de uma plataforma de questões para calibrar', risk: 0 });
             return;
         }
         const totalRisk = pool.reduce((sum, item) => sum + Math.max(item.d.risk, .15), 0);
@@ -417,7 +417,7 @@ function renderHud(list = ranked()) {
     $('#hudRecovery').textContent = String(recovery.length);
     $('#hudRecovery').style.color = recovery.length ? '#fb7185' : '#34d399';
     $('#hudNext').textContent = next ? next.name : 'Aguardando dados';
-    $('#hudNext').title = next ? next.d.action : 'Aguardando sincronização automática do TEC';
+    $('#hudNext').title = next ? next.d.action : 'Aguardando sincronização das plataformas';
     $('#hudSync').textContent = state.sync ? fmtDate(state.sync.at) : 'local';
 }
 function renderTimer() { const seconds = currentDay().seconds + pendingSessionSeconds; $('#clock').textContent = fmtSeconds(seconds); $('#timerStatus').textContent = timerRunning ? (focused() ? 'Estudando' : 'Pausado: página fora de foco') : 'Aguardando atividade'; $('#timerToggle').textContent = timerRunning ? 'Pausar sessão' : 'Iniciar sessão'; $('#hudTimerToggle').textContent = timerRunning ? 'Pausar' : 'Iniciar'; $('#hudSessionType').value = $('#sessionType').value; renderHud(); }
