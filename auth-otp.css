@@ -1,0 +1,1 @@
+.otp-group{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}.otp-digit{width:100%;text-align:center;font-size:1.35rem;font-weight:750;padding:12px 4px}@media(max-width:420px){.otp-group{gap:5px}.otp-digit{padding-left:2px;padding-right:2px}}

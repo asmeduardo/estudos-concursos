@@ -19,7 +19,7 @@ Deno.serve(async (request) => {
   if (request.method !== 'POST') return json({ error: 'Método não permitido.' }, 405);
   try {
     const body = await request.json() as { action?: string; email?: string; password?: string; name?: string; redirectTo?: string };
-    const action = body.action === 'signup' || body.action === 'resend_signup' ? 'signup' : body.action === 'recovery' ? 'recovery' : '';
+    const action = body.action === 'signup_otp' || body.action === 'resend_signup' || body.action === 'signup' ? 'signup' : body.action === 'recovery' ? 'recovery' : '';
     const email = String(body.email || '').trim().toLowerCase();
     const redirectTo = String(body.redirectTo || 'https://asmeduardo.github.io/estudos-concursos/redefinir-senha.html');
     if (!action || !validEmail(email)) return json({ error: 'Solicitação inválida.' }, 400);
@@ -34,11 +34,11 @@ Deno.serve(async (request) => {
     const rate = Array.isArray(claim.data) ? claim.data[0] : claim.data;
     if (!rate?.allowed) return json({ error: 'Aguarde antes de solicitar outro e-mail.', retryAfter: Number(rate?.retry_after_seconds || 60) }, 429);
 
-    const endpoint = body.action === 'signup' ? 'signup' : body.action === 'resend_signup' ? 'resend' : 'recover';
+    const endpoint = body.action === 'signup' ? 'signup' : body.action === 'signup_otp' ? 'otp' : body.action === 'resend_signup' ? 'otp' : 'recover';
     const payload = body.action === 'signup'
       ? { email, password: String(body.password), data: { display_name: String(body.name || '').trim() }, redirect_to: redirectTo }
-      : body.action === 'resend_signup'
-        ? { type: 'signup', email, redirect_to: redirectTo }
+      : body.action === 'signup_otp' || body.action === 'resend_signup'
+        ? { email, create_user: true, redirect_to: redirectTo }
         : { email, redirect_to: redirectTo };
     const response = await fetch(`${url}/auth/v1/${endpoint}`, { method: 'POST', headers: { apikey: serviceKey, authorization: `Bearer ${serviceKey}`, 'content-type': 'application/json' }, body: JSON.stringify(payload) });
     if (!response.ok) return json({ error: 'Não foi possível enviar o e-mail agora.' }, 400);
