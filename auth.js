@@ -1,6 +1,8 @@
+"use strict";
+const appWindow = window;
 const root = document.querySelector('#authRoot');
-const configured = Boolean(window.__SUPABASE_CONFIG__?.url && window.__SUPABASE_CONFIG__?.anonKey && window.supabase?.createClient);
-const auth = configured ? window.supabase.createClient(window.__SUPABASE_CONFIG__.url, window.__SUPABASE_CONFIG__.anonKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }) : null;
+const configured = Boolean(appWindow.__SUPABASE_CONFIG__?.url && appWindow.__SUPABASE_CONFIG__?.anonKey && appWindow.supabase?.createClient);
+const auth = configured ? appWindow.supabase.createClient(appWindow.__SUPABASE_CONFIG__.url, appWindow.__SUPABASE_CONFIG__.anonKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }) : null;
 const COOLDOWN_SECONDS = 60;
 const pageMode = document.body.dataset.authMode;
 const query = new URLSearchParams(location.search);
@@ -173,4 +175,3 @@ async function boot() {
         renderRecovery();
 }
 void boot();
-export {};
