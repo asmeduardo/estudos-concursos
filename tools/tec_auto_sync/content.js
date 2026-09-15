@@ -62,13 +62,13 @@
       const incorrect = raw.match(/(\d+)\s*(?:erros?|erradas?)/i);
       if (attempted || correct || incorrect) unique = [{ id: (location.pathname.match(/cadernos\/(\d+)/i) || [])[1] || 'tec-caderno', name: document.title || 'Caderno TEC', subject: /portugu|ingl[eê]s|matem|racioc|rlm|legisla|atualidade/i.test(raw) ? 'general' : 'specific', topic: document.title || 'Resultados do caderno', attempted: attempted ? number(attempted[1]) : 0, correct: correct ? number(correct[1]) : 0, accuracy: 0, sourceUrl: location.href }];
     }
-    if (!unique.length) { badge('TEC aberto · aguardando resultados visíveis'); return; }
+    if (!unique.length) { badge('Nexame · aguardando resultados'); return; }
     const attempt = questionAttempt();
     const stable = JSON.stringify({ unique, attempt: attempt ? `${attempt.id}:${attempt.correct}` : '' });
     if (stable === lastPayload) return;
     lastPayload = stable;
     const payload = JSON.stringify({ source: 'tec-extension', generatedAt: new Date().toISOString(), cadernos: unique, questionAttempts: attempt ? [attempt] : [] });
-    chrome.runtime.sendMessage({ type: 'ingest', payload }, (result) => { if (chrome.runtime.lastError || !result?.ok) { badge('TEC detectado · falha ao salvar'); return; } badge(`TEC sincronizado · ${unique.length || (attempt ? 1 : 0)}`); });
+    chrome.runtime.sendMessage({ type: 'ingest', payload }, (result) => { if (chrome.runtime.lastError || !result?.ok) { badge('Nexame · atualização pendente'); return; } badge(`Nexame atualizado · ${unique.length || (attempt ? 1 : 0)} registro(s)`); });
   }
 
   function badge(label) {
