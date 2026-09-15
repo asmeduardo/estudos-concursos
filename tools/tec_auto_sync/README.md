@@ -1,17 +1,11 @@
 # Nexame — sincronização automática do TEC
 
-Esta extensão não faz login e não recebe senha. Você entra normalmente no TEC; enquanto uma página autenticada estiver aberta, ela lê as estatísticas visíveis dos cadernos e o resultado que a própria página exibe para uma questão. Ela não coleta enunciados, comentários ou credenciais e envia somente esses metadados para `http://127.0.0.1:8765/ingest`.
+Esta extensão não faz login e não recebe senha. Você entra normalmente no TEC; enquanto uma página autenticada estiver aberta, ela lê as estatísticas visíveis dos cadernos e o resultado que a própria página exibe para uma questão. Ela não coleta enunciados, comentários ou credenciais. O service worker guarda apenas o último snapshot temporário no `chrome.storage.local` e o entrega ao Nexame quando o painel está aberto.
 
-## Configuração única
+## Instalação
 
-1. Na pasta do projeto, inicie a ponte:
+Na distribuição privada/não listada, instale a extensão pelo link da Chrome Web Store e conceda acesso ao TEC e ao Nexame. Durante o desenvolvimento, ela também pode ser carregada sem compactação em `chrome://extensions`.
 
-   ```bash
-   python3 tools/tec_sync.py --serve tec_sync.json --port 8765
-   ```
-
-2. Abra `chrome://extensions`, ative **Modo do desenvolvedor** e escolha **Carregar sem compactação**.
-3. Selecione a pasta `tools/tec_auto_sync`.
-4. Abra o TEC, faça login normalmente e visite a área de cadernos/resultados.
+Depois, abra o TEC, faça login normalmente e visite a área de cadernos/resultados.
 
 Depois disso, não é necessário exportar ou lançar dados no painel: a extensão sincroniza alterações automaticamente e a SPA recalcula o plano. A extensão não tem permissão para ler outras páginas nem para acessar campos de senha.
