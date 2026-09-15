@@ -26,7 +26,8 @@
   });
   function record(link, index) {
     const href = link?.href || location.href, raw = text(link === document.body ? document.body : (link.closest('article,li,tr,[class*="card"],[class*="caderno"],section') || link.parentElement || document.body)), stats = summary(raw);
-    return { id: idFor(href, index), name: link === document.body ? (document.title || `Caderno ${idFor(href, index)}`) : (text(link) || document.title), subject: /portugu|ingl[eê]s|matem|racioc|rlm|legisla|atualidade|geral/i.test(raw) ? 'general' : 'specific', topic: link === document.body ? (document.title || 'Resultados do caderno') : raw.slice(0, 180), attempted: stats.attempted, correct: stats.correct, incorrect: stats.incorrect, sourcePlatform: adapter.platform, sourceUrl: href };
+    const sourceId = `${adapter.platform}:${idFor(href, index)}`;
+    return { id: sourceId, name: link === document.body ? (document.title || `Caderno ${sourceId}`) : (text(link) || document.title), subject: /portugu|ingl[eê]s|matem|racioc|rlm|legisla|atualidade|geral/i.test(raw) ? 'general' : 'specific', topic: link === document.body ? (document.title || 'Resultados do caderno') : raw.slice(0, 180), attempted: stats.attempted, correct: stats.correct, incorrect: stats.incorrect, sourcePlatform: adapter.platform, sourceUrl: href };
   }
   function questionAttempt() {
     const match = location.pathname.match(/(?:quest(?:oes|ões)|question)/i); if (!match) return null;
