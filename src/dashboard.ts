@@ -7,14 +7,14 @@ interface Caderno {
   attempted: number; correct: number; incorrect: number; repeatErrors: number;
   lastAttemptAt: string | null; updatedAt: string;
 }
-interface Session { type: string; seconds: number; endedAt: string; reason: string; uploaded?: boolean; }
+interface Session { type: string; seconds: number; endedAt: string; reason: string; subject?: Subject; uploaded?: boolean; }
 interface ContestConfig { id: string; name: string; examDate: string; targetMinutes: number; targetAccuracy: number; specificWeight: number; generalWeight: number; minQuestions: number; priority: 'primary' | 'secondary'; updatedAt: string; }
 interface ContentItem { code: string; area: string; layer: string; videoId: string; start: number; end: number; title: string; channel: string; purpose: string; tec?: unknown[]; }
 interface ContentProgress { player: string; code: string; seconds: number; completed: boolean; updatedAt: string; }
 interface RoadmapItem { code: string; area: string; layer: string; title: string; videoId: string; tec: string; }
 interface StudyEvent { id: string; contestId: string; topicId?: string; type: 'video_session' | 'question_session' | 'review_session' | 'simulation' | 'focus_pause' | 'content_progress'; source: string; seconds: number; endedAt: string; metadata?: Record<string, unknown>; uploaded?: boolean; }
 interface QuestionAttempt { id: string; contestId: string; externalQuestionId: string; cadernoId?: string; correct: boolean; attemptedAt: string; durationSeconds?: number; metadata?: Record<string, unknown>; uploaded?: boolean; }
-interface TimeSummary { todaySeconds: number; yesterdaySeconds: number; weekSeconds: number; totalSeconds: number; updatedAt: string; }
+interface TimeSummary { todaySeconds: number; yesterdaySeconds: number; weekSeconds: number; totalSeconds: number; specificSeconds: number; generalSeconds: number; unclassifiedSeconds: number; updatedAt: string; }
 interface StudyState { targetMinutes: number; cadernos: Record<string, Caderno>; contests: Record<string, ContestConfig>; activeContestId: string; content?: Record<string, ContentItem[]>; contentProgress?: Record<string, ContentProgress>; sync?: { at: string; source: string } | null; daily: Record<string, { seconds: number; sessions: Session[] }>; events?: StudyEvent[]; questionAttempts?: QuestionAttempt[]; platformStudyTotals?: Record<string, number>; timeSummaries?: Record<string, TimeSummary>; }
 interface Diagnosis { raw: number; smooth: number; confidence: number; eligible: boolean; status: Status; risk: number; action: string; }
 type Ranked = Caderno & { d: Diagnosis };
@@ -29,7 +29,12 @@ const LEGACY_KEY = 'dataprev-study-state-v1';
 const MIN_SAMPLE = 10;
 const DEFAULT_TARGET = 390;
 const DEFAULT_CONTEST: ContestConfig = { id: 'meu-primeiro-concurso', name: 'Meu concurso', examDate: '', targetMinutes: DEFAULT_TARGET, targetAccuracy: 100, specificWeight: 1, generalWeight: 1, minQuestions: MIN_SAMPLE, priority: 'primary', updatedAt: new Date().toISOString() };
-const today = new Date().toISOString().slice(0, 10);
+function studyDate(date = new Date()): string {
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(date);
+  const pick = (type: string) => parts.find((part) => part.type === type)?.value || '';
+  return `${pick('year')}-${pick('month')}-${pick('day')}`;
+}
+let today = studyDate();
 const $ = <T extends Element = HTMLElement>(selector: string): T => document.querySelector(selector) as T;
 const state: StudyState = loadState();
 state.contests ||= {};
@@ -68,6 +73,7 @@ let timerLast = 0;
 let pendingSessionSeconds = 0;
 let playerPauseTick: number | null = null;
 let manualPause = false;
+let timerSubject: Subject = 'specific';
 
 interface Window {
   __SUPABASE_CONFIG__?: { url?: string; anonKey?: string };
@@ -195,6 +201,7 @@ async function pullCloud(): Promise<void> {
   const localPending = currentDay().sessions.filter((session) => !session.uploaded);
   const remoteSessions = ((sessionsResult.data || []) as Record<string, unknown>[]).map((raw) => ({
     type: String(raw.session_type || 'review'), seconds: numberValue(raw.seconds), endedAt: String(raw.ended_at || new Date().toISOString()), reason: String(raw.source || 'cloud'), uploaded: true
+    , subject: raw.subject === 'general' ? 'general' as Subject : raw.subject === 'specific' ? 'specific' as Subject : undefined
   }));
   state.daily[dayKey()] = { seconds: remoteSessions.reduce((sum, session) => sum + session.seconds, 0) + localPending.reduce((sum, session) => sum + session.seconds, 0), sessions: [...remoteSessions, ...localPending] };
   // O relógio principal é diário, mas o histórico precisa permanecer visível
@@ -204,7 +211,9 @@ async function pullCloud(): Promise<void> {
     const raw = Array.isArray(summaryResult.data) ? summaryResult.data[0] : summaryResult.data;
     state.timeSummaries![state.activeContestId] = {
       todaySeconds: numberValue(raw?.today_seconds), yesterdaySeconds: numberValue(raw?.yesterday_seconds),
-      weekSeconds: numberValue(raw?.week_seconds), totalSeconds: numberValue(raw?.total_seconds), updatedAt: new Date().toISOString()
+      weekSeconds: numberValue(raw?.week_seconds), totalSeconds: numberValue(raw?.total_seconds),
+      specificSeconds: numberValue(raw?.specific_seconds), generalSeconds: numberValue(raw?.general_seconds),
+      unclassifiedSeconds: numberValue(raw?.unclassified_seconds), updatedAt: new Date().toISOString()
     };
   }
   const progressResult = await cloud.from('study_content_progress').select('*').eq('user_id', cloudUserId).eq('contest_id', state.activeContestId);
@@ -252,11 +261,13 @@ async function syncCloud(): Promise<void> {
     const rows = Object.values(state.cadernos).filter((c) => c.contestId === state.activeContestId).map((c) => ({ user_id: cloudUserId, contest_id: c.contestId, caderno_id: c.id, name: c.name, subject: c.subject, topic: c.topic, attempted: c.attempted, correct: c.correct, incorrect: c.incorrect, repeat_errors: c.repeatErrors, last_attempt_at: c.lastAttemptAt, updated_at: c.updatedAt }));
     const cadernosResult = await cloud.from('study_cadernos').upsert(rows, { onConflict: 'user_id,contest_id,caderno_id' });
     if (cadernosResult.error) throw new Error(cadernosResult.error.message);
-    const pending = currentDay().sessions.filter((session) => !session.uploaded && session.seconds > 0).map((session) => ({ user_id: cloudUserId, session_date: today, session_type: session.type, seconds: Math.round(session.seconds), ended_at: session.endedAt, source: session.reason || 'dashboard' }));
+    const pending = Object.entries(state.daily)
+      .filter(([key]) => key.startsWith(`${state.activeContestId}::`))
+      .flatMap(([key, day]) => day.sessions.filter((session) => !session.uploaded && session.seconds > 0).map((session) => ({ user_id: cloudUserId, session_date: key.split('::')[1], session_type: session.type, seconds: Math.round(session.seconds), ended_at: session.endedAt, source: session.reason || 'dashboard', subject: session.subject || null })));
     if (pending.length) {
       const sessionsResult = await cloud.from('study_sessions').insert(pending.map((session) => ({ ...session, contest_id: state.activeContestId })));
       if (sessionsResult.error) throw new Error(sessionsResult.error.message);
-      currentDay().sessions.forEach((session) => { if (!session.uploaded) session.uploaded = true; });
+      Object.entries(state.daily).filter(([key]) => key.startsWith(`${state.activeContestId}::`)).forEach(([, day]) => day.sessions.forEach((session) => { if (!session.uploaded) session.uploaded = true; }));
     }
     const pendingEvents = state.events!.filter((event) => !event.uploaded && event.contestId === state.activeContestId).map((event) => ({ user_id: cloudUserId, contest_id: event.contestId, topic_id: event.topicId || null, event_type: event.type, source: event.source, ended_at: event.endedAt, seconds: event.seconds, metadata: event.metadata || {}, idempotency_key: event.id }));
     if (pendingEvents.length) {
@@ -401,7 +412,7 @@ function renderDailyPlan(list: Ranked[]): void {
   const generalMinutes = blocks.filter((block) => block.subject === 'general').reduce((sum, block) => sum + block.minutes, 0);
   const contest = activeContest();
   target.innerHTML = `<div class="plan-summary"><span><b>${daysUntilExam()}</b> dias até a prova</span><span>Específicas <b>${specificMinutes} min</b></span><span>Gerais <b>${generalMinutes} min</b></span></div><div class="plan-list">${blocks.map((block, index) => `<button class="plan-row" data-plan-index="${index}" data-session-type="${block.mode}" title="Selecionar ${esc(block.topic)}"><span class="plan-number">${index + 1}</span><span class="plan-main"><strong>${esc(block.topic)}</strong><small>${block.subject === 'specific' ? `Específicas · peso ${contest.specificWeight}` : `Gerais · peso ${contest.generalWeight}`} · ${esc(block.action)}</small></span><span class="plan-time">${block.minutes} min</span></button>`).join('')}</div>`;
-  target.querySelectorAll<HTMLButtonElement>('.plan-row').forEach((button) => button.addEventListener('click', () => { const type = button.dataset.sessionType || 'review'; $<HTMLSelectElement>('#sessionType').value = type; $<HTMLSelectElement>('#hudSessionType').value = type; $('#timerStatus').textContent = `Bloco selecionado: ${button.querySelector('strong')?.textContent || ''}`; $('#timerToggle').focus(); }));
+  target.querySelectorAll<HTMLButtonElement>('.plan-row').forEach((button, index) => button.addEventListener('click', () => { const type = button.dataset.sessionType || 'review', block = blocks[index]; $<HTMLSelectElement>('#sessionType').value = type; $<HTMLSelectElement>('#hudSessionType').value = type; timerSubject = block?.subject || 'specific'; $('#timerStatus').textContent = `Bloco selecionado: ${button.querySelector('strong')?.textContent || ''}`; $('#timerToggle').focus(); }));
 }
 function renderRoadmap(): void {
   const target = $('#roadmapList'), badge = $('#roadmapBadge');
@@ -461,7 +472,7 @@ function render(): void {
   $('#metricTime').textContent = fmtSeconds(seconds);
   const history = state.timeSummaries?.[state.activeContestId];
   $('#metricTimeSub').textContent = `${Math.min(100, Math.round(100 * seconds / (state.targetMinutes * 60)))}% da meta de ${fmtMinutes(state.targetMinutes)}`;
-  $('#timerHistory').textContent = history ? `Ontem ${fmtSeconds(history.yesterdaySeconds)} · Semana ${fmtSeconds(history.weekSeconds)} · Total neste concurso ${fmtSeconds(history.totalSeconds)}` : 'Histórico será exibido após a primeira sincronização com a nuvem.';
+  $('#timerHistory').textContent = history ? `Ontem ${fmtSeconds(history.yesterdaySeconds)} · Semana ${fmtSeconds(history.weekSeconds)} · Total ${fmtSeconds(history.totalSeconds)} · Específicas ${fmtSeconds(history.specificSeconds)} · Gerais ${fmtSeconds(history.generalSeconds)}${history.unclassifiedSeconds ? ` · Histórico sem área ${fmtSeconds(history.unclassifiedSeconds)}` : ''}` : 'Histórico será exibido após a primeira sincronização com a nuvem.';
   $('#dayProgress').style.width = `${Math.min(100, 100 * seconds / (state.targetMinutes * 60))}%`;
   $('#metricCadernos').textContent = String(evaluated.length);
   $('#metricCadernosSub').textContent = `${list.length} cadastrados · mínimo de ${contest.minQuestions} questões`;
@@ -476,13 +487,24 @@ function render(): void {
   renderDecision(list); renderDailyPlan(list); renderRoadmap(); renderTable(list); renderHud(list); renderTimer(); renderAccount();
 }
 function focused(): boolean { return document.visibilityState === 'visible' && (document.hasFocus() || document.activeElement?.tagName === 'IFRAME'); }
+function rolloverStudyDay(): void {
+  const next = studyDate();
+  if (next === today) return;
+  // Fecha a fração acumulada no dia anterior antes de trocar a chave diária.
+  if (timerRunning) checkpointTimer('day-rollover', true);
+  today = next;
+  pendingSessionSeconds = 0;
+  timerLast = performance.now();
+  currentDay();
+  saveState();
+}
 function checkpointTimer(reason = 'checkpoint', force = false): void {
   if (!force && pendingSessionSeconds < 30) return;
   if (pendingSessionSeconds < 1) return;
   const seconds = Math.round(pendingSessionSeconds), type = $<HTMLSelectElement>('#sessionType').value;
   currentDay().seconds += seconds;
-  currentDay().sessions.push({ type, seconds, endedAt: new Date().toISOString(), reason });
-  recordEvent(eventTypeForSession(type), reason === 'player' ? 'youtube-embed' : 'nexame', seconds, { reason });
+  currentDay().sessions.push({ type, seconds, endedAt: new Date().toISOString(), reason, subject: timerSubject });
+  recordEvent(eventTypeForSession(type), reason === 'player' ? 'youtube-embed' : 'nexame', seconds, { reason, subject: timerSubject });
   pendingSessionSeconds = 0;
   // localStorage é síncrono: mesmo que a aba seja recarregada antes do envio
   // à nuvem, pullCloud preserva esta sessão pendente e a envia na próxima carga.
@@ -490,6 +512,7 @@ function checkpointTimer(reason = 'checkpoint', force = false): void {
 }
 function timerLoop(): void {
   if (!timerRunning) return;
+  rolloverStudyDay();
   const now = performance.now();
   if (focused() && timerLast) pendingSessionSeconds += Math.max(0, Math.min(5, (now - timerLast) / 1000));
   timerLast = now;
@@ -540,8 +563,9 @@ window.addEventListener('message', (event: MessageEvent<{ type?: string; playing
       state.platformStudyTotals![key] = Math.max(prior, total);
       if (!delta || !key.endsWith(`:${today}`)) continue;
       currentDay().seconds += delta;
-      currentDay().sessions.push({ type: 'tec', seconds: delta, endedAt: payload.generatedAt || new Date().toISOString(), reason: 'plataforma de questões' });
-      recordEvent('question_session', 'nexame-connector', delta, { platformTotalKey: key });
+      const parts = key.split(':'), subject: Subject = parts.length >= 3 && parts.at(-2) === 'general' ? 'general' : 'specific';
+      currentDay().sessions.push({ type: 'tec', seconds: delta, endedAt: payload.generatedAt || new Date().toISOString(), reason: 'plataforma de questões', subject });
+      recordEvent('question_session', 'nexame-connector', delta, { platformTotalKey: key, subject });
     }
     if (Array.isArray(payload.cadernos) && payload.cadernos.length) importRecords(payload, 'extensão Nexame · plataforma de questões');
     for (const attempt of payload.questionAttempts || []) {
@@ -554,7 +578,7 @@ window.addEventListener('message', (event: MessageEvent<{ type?: string; playing
     const frame = [...document.querySelectorAll('iframe')].find((item) => item.contentWindow === event.source);
     window.NexamePdfLibrary?.attach(frame?.contentDocument, event.data.code);
     if (event.data.playing) {
-      if (frame?.closest('#specific') || frame?.closest('#general')) { $<HTMLSelectElement>('#sessionType').value = 'video'; $<HTMLSelectElement>('#hudSessionType').value = 'video'; }
+      if (frame?.closest('#specific') || frame?.closest('#general')) { timerSubject = frame?.closest('#general') ? 'general' : 'specific'; $<HTMLSelectElement>('#sessionType').value = 'video'; $<HTMLSelectElement>('#hudSessionType').value = 'video'; }
       if (playerPauseTick) window.clearTimeout(playerPauseTick); playerPauseTick = null;
       if (!timerRunning && !manualPause) startTimer('player');
     } else if (timerRunning && !playerPauseTick) { playerPauseTick = window.setTimeout(() => { playerPauseTick = null; if (timerRunning) pauseTimer('player'); }, 1500); }
@@ -565,6 +589,7 @@ window.addEventListener('message', (event: MessageEvent<{ type?: string; playing
 });
 const requestedView = location.hash.slice(1);
 if (['specific', 'general', 'settings'].includes(requestedView)) openView(requestedView);
+window.setInterval(() => { const before = today; rolloverStudyDay(); if (today !== before) render(); }, 30_000);
 render();
 void initCloud();
 void loadRoadmap();

@@ -1,6 +1,11 @@
 (function () {
   'use strict';
   const APP_ORIGIN = 'https://asmeduardo.github.io';
+  const localStudyDate = (date = new Date()) => {
+    const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(date);
+    const pick = (type) => parts.find((part) => part.type === type)?.value || '';
+    return `${pick('year')}-${pick('month')}-${pick('day')}`;
+  };
   // Uma aba que já estava aberta perde o contexto quando a extensão é
   // atualizada. Nunca deixe um timer antigo gerar erro no console do usuário.
   const extensionAlive = () => {
@@ -31,7 +36,7 @@
   const adapters = globalThis.NexameAdapters || {};
   const adapter = Object.values(adapters).find((item) => item.matches(location.hostname));
   if (!adapter) return;
-  let lastPayload = '', timer = null, studyLast = Date.now(), studyWhole = 0;
+  let lastPayload = '', timer = null, studyLast = Date.now(), studyWhole = 0, studySubject = 'specific';
   const number = (value) => { const match = String(value || '').match(/\d+(?:[.,]\d+)?/); return match ? Number(match[0].replace(',', '.')) : 0; };
   const text = (node) => (node?.innerText || node?.textContent || '').replace(/\s+/g, ' ').trim();
   const idFor = (href, index) => adapter.id(href || location.href, index);
@@ -84,11 +89,12 @@
     const links = [...document.querySelectorAll(adapter.links)], sourceRows = location.pathname.match(/\/cadernos?\/\d+/i) ? [document.body] : (links.length ? links : [document.body]);
     const rows = sourceRows.map(record).filter(Boolean), unique = [...new Map(rows.map((row) => [row.id, row])).values()];
     if (!unique.length) return;
+    studySubject = unique[0].subject === 'general' ? 'general' : 'specific';
     const attempt = questionAttempt(), payload = JSON.stringify({ version: 3, source: 'nexame-connector', sourcePlatform: adapter.platform, generatedAt: new Date().toISOString(), cadernos: unique, questionAttempts: attempt ? [attempt] : [] });
     if (payload === lastPayload) return; lastPayload = payload;
     send({ type: 'ingest', payload }, (result) => { if (result?.ok) badge(`Nexame atualizado · ${adapter.platform}`); });
   }
-  function trackStudyTime() { const now = Date.now(), elapsed = Math.min(20, Math.max(0, (now - studyLast) / 1000)); studyLast = now; if (document.visibilityState !== 'visible' || !document.hasFocus() || !adapter.cadernoPath.test(location.pathname)) return; studyWhole += elapsed; const seconds = Math.floor(studyWhole); if (!seconds) return; studyWhole -= seconds; send({ type: 'study_time', platform: adapter.platform, date: new Date().toISOString().slice(0, 10), seconds }); }
+  function trackStudyTime() { const now = Date.now(), elapsed = Math.min(20, Math.max(0, (now - studyLast) / 1000)); studyLast = now; if (document.visibilityState !== 'visible' || !document.hasFocus() || !adapter.cadernoPath.test(location.pathname)) return; studyWhole += elapsed; const seconds = Math.floor(studyWhole); if (!seconds) return; studyWhole -= seconds; send({ type: 'study_time', platform: adapter.platform, subject: studySubject, date: localStudyDate(), seconds }); }
   function badge(label) { let node = document.getElementById('nexame-connector-status'); if (!node) { node = document.createElement('div'); node.id = 'nexame-connector-status'; node.style.cssText = 'position:fixed;right:14px;bottom:14px;z-index:2147483647;background:#0f766e;color:#ecfeff;padding:7px 10px;border-radius:8px;font:12px system-ui;box-shadow:0 2px 10px #0005'; document.body.appendChild(node); } if (node.textContent !== label) node.textContent = label; }
   collect();
   new MutationObserver(() => { if (timer !== null) return; timer = setTimeout(() => { timer = null; collect(); }, 500); }).observe(document.documentElement, { childList: true, subtree: true });

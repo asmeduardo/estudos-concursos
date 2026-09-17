@@ -15,9 +15,9 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return true;
   }
   if (message?.type === 'study_time') {
-    const seconds = Math.max(0, Math.min(20, Number(message.seconds) || 0)), platform = String(message.platform || 'platform').slice(0, 40), date = String(message.date || '').slice(0, 10);
+    const seconds = Math.max(0, Math.min(20, Number(message.seconds) || 0)), platform = String(message.platform || 'platform').slice(0, 40), subject = message.subject === 'general' ? 'general' : 'specific', date = String(message.date || '').slice(0, 10);
     if (!seconds || !/^\d{4}-\d{2}-\d{2}$/.test(date)) { sendResponse({ ok: false }); return false; }
-    chrome.storage.local.get(STUDY_TOTALS_KEY, (result) => { const totals = result[STUDY_TOTALS_KEY] || {}, key = `${platform}:${date}`; totals[key] = Math.min(86400, (Number(totals[key]) || 0) + seconds); chrome.storage.local.set({ [STUDY_TOTALS_KEY]: totals }, () => sendResponse({ ok: !chrome.runtime.lastError })); });
+    chrome.storage.local.get(STUDY_TOTALS_KEY, (result) => { const totals = result[STUDY_TOTALS_KEY] || {}, key = `${platform}:${subject}:${date}`; totals[key] = Math.min(86400, (Number(totals[key]) || 0) + seconds); chrome.storage.local.set({ [STUDY_TOTALS_KEY]: totals }, () => sendResponse({ ok: !chrome.runtime.lastError })); });
     return true;
   }
   if (message?.type === 'clear_snapshot') {

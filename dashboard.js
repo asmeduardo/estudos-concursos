@@ -4,7 +4,12 @@ const LEGACY_KEY = 'dataprev-study-state-v1';
 const MIN_SAMPLE = 10;
 const DEFAULT_TARGET = 390;
 const DEFAULT_CONTEST = { id: 'meu-primeiro-concurso', name: 'Meu concurso', examDate: '', targetMinutes: DEFAULT_TARGET, targetAccuracy: 100, specificWeight: 1, generalWeight: 1, minQuestions: MIN_SAMPLE, priority: 'primary', updatedAt: new Date().toISOString() };
-const today = new Date().toISOString().slice(0, 10);
+function studyDate(date = new Date()) {
+    const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(date);
+    const pick = (type) => parts.find((part) => part.type === type)?.value || '';
+    return `${pick('year')}-${pick('month')}-${pick('day')}`;
+}
+let today = studyDate();
 const $ = (selector) => document.querySelector(selector);
 const state = loadState();
 state.contests ||= {};
@@ -45,6 +50,7 @@ let timerLast = 0;
 let pendingSessionSeconds = 0;
 let playerPauseTick = null;
 let manualPause = false;
+let timerSubject = 'specific';
 let cloud = null;
 let cloudUserId = '';
 let cloudUserEmail = '';
@@ -186,7 +192,8 @@ async function pullCloud() {
         throw new Error(sessionsResult.error.message);
     const localPending = currentDay().sessions.filter((session) => !session.uploaded);
     const remoteSessions = (sessionsResult.data || []).map((raw) => ({
-        type: String(raw.session_type || 'review'), seconds: numberValue(raw.seconds), endedAt: String(raw.ended_at || new Date().toISOString()), reason: String(raw.source || 'cloud'), uploaded: true
+        type: String(raw.session_type || 'review'), seconds: numberValue(raw.seconds), endedAt: String(raw.ended_at || new Date().toISOString()), reason: String(raw.source || 'cloud'), uploaded: true,
+        subject: raw.subject === 'general' ? 'general' : raw.subject === 'specific' ? 'specific' : undefined
     }));
     state.daily[dayKey()] = { seconds: remoteSessions.reduce((sum, session) => sum + session.seconds, 0) + localPending.reduce((sum, session) => sum + session.seconds, 0), sessions: [...remoteSessions, ...localPending] };
     // O relógio principal é diário, mas o histórico precisa permanecer visível
@@ -196,7 +203,9 @@ async function pullCloud() {
         const raw = Array.isArray(summaryResult.data) ? summaryResult.data[0] : summaryResult.data;
         state.timeSummaries[state.activeContestId] = {
             todaySeconds: numberValue(raw?.today_seconds), yesterdaySeconds: numberValue(raw?.yesterday_seconds),
-            weekSeconds: numberValue(raw?.week_seconds), totalSeconds: numberValue(raw?.total_seconds), updatedAt: new Date().toISOString()
+            weekSeconds: numberValue(raw?.week_seconds), totalSeconds: numberValue(raw?.total_seconds),
+            specificSeconds: numberValue(raw?.specific_seconds), generalSeconds: numberValue(raw?.general_seconds),
+            unclassifiedSeconds: numberValue(raw?.unclassified_seconds), updatedAt: new Date().toISOString()
         };
     }
     const progressResult = await cloud.from('study_content_progress').select('*').eq('user_id', cloudUserId).eq('contest_id', state.activeContestId);
@@ -258,13 +267,15 @@ async function syncCloud() {
         const cadernosResult = await cloud.from('study_cadernos').upsert(rows, { onConflict: 'user_id,contest_id,caderno_id' });
         if (cadernosResult.error)
             throw new Error(cadernosResult.error.message);
-        const pending = currentDay().sessions.filter((session) => !session.uploaded && session.seconds > 0).map((session) => ({ user_id: cloudUserId, session_date: today, session_type: session.type, seconds: Math.round(session.seconds), ended_at: session.endedAt, source: session.reason || 'dashboard' }));
+        const pending = Object.entries(state.daily)
+            .filter(([key]) => key.startsWith(`${state.activeContestId}::`))
+            .flatMap(([key, day]) => day.sessions.filter((session) => !session.uploaded && session.seconds > 0).map((session) => ({ user_id: cloudUserId, session_date: key.split('::')[1], session_type: session.type, seconds: Math.round(session.seconds), ended_at: session.endedAt, source: session.reason || 'dashboard', subject: session.subject || null })));
         if (pending.length) {
             const sessionsResult = await cloud.from('study_sessions').insert(pending.map((session) => ({ ...session, contest_id: state.activeContestId })));
             if (sessionsResult.error)
                 throw new Error(sessionsResult.error.message);
-            currentDay().sessions.forEach((session) => { if (!session.uploaded)
-                session.uploaded = true; });
+            Object.entries(state.daily).filter(([key]) => key.startsWith(`${state.activeContestId}::`)).forEach(([, day]) => day.sessions.forEach((session) => { if (!session.uploaded)
+                session.uploaded = true; }));
         }
         const pendingEvents = state.events.filter((event) => !event.uploaded && event.contestId === state.activeContestId).map((event) => ({ user_id: cloudUserId, contest_id: event.contestId, topic_id: event.topicId || null, event_type: event.type, source: event.source, ended_at: event.endedAt, seconds: event.seconds, metadata: event.metadata || {}, idempotency_key: event.id }));
         if (pendingEvents.length) {
@@ -494,7 +505,7 @@ function renderDailyPlan(list) {
     const generalMinutes = blocks.filter((block) => block.subject === 'general').reduce((sum, block) => sum + block.minutes, 0);
     const contest = activeContest();
     target.innerHTML = `<div class="plan-summary"><span><b>${daysUntilExam()}</b> dias até a prova</span><span>Específicas <b>${specificMinutes} min</b></span><span>Gerais <b>${generalMinutes} min</b></span></div><div class="plan-list">${blocks.map((block, index) => `<button class="plan-row" data-plan-index="${index}" data-session-type="${block.mode}" title="Selecionar ${esc(block.topic)}"><span class="plan-number">${index + 1}</span><span class="plan-main"><strong>${esc(block.topic)}</strong><small>${block.subject === 'specific' ? `Específicas · peso ${contest.specificWeight}` : `Gerais · peso ${contest.generalWeight}`} · ${esc(block.action)}</small></span><span class="plan-time">${block.minutes} min</span></button>`).join('')}</div>`;
-    target.querySelectorAll('.plan-row').forEach((button) => button.addEventListener('click', () => { const type = button.dataset.sessionType || 'review'; $('#sessionType').value = type; $('#hudSessionType').value = type; $('#timerStatus').textContent = `Bloco selecionado: ${button.querySelector('strong')?.textContent || ''}`; $('#timerToggle').focus(); }));
+    target.querySelectorAll('.plan-row').forEach((button, index) => button.addEventListener('click', () => { const type = button.dataset.sessionType || 'review', block = blocks[index]; $('#sessionType').value = type; $('#hudSessionType').value = type; timerSubject = block?.subject || 'specific'; $('#timerStatus').textContent = `Bloco selecionado: ${button.querySelector('strong')?.textContent || ''}`; $('#timerToggle').focus(); }));
 }
 function renderRoadmap() {
     const target = $('#roadmapList'), badge = $('#roadmapBadge');
@@ -579,7 +590,7 @@ function render() {
     $('#metricTime').textContent = fmtSeconds(seconds);
     const history = state.timeSummaries?.[state.activeContestId];
     $('#metricTimeSub').textContent = `${Math.min(100, Math.round(100 * seconds / (state.targetMinutes * 60)))}% da meta de ${fmtMinutes(state.targetMinutes)}`;
-    $('#timerHistory').textContent = history ? `Ontem ${fmtSeconds(history.yesterdaySeconds)} · Semana ${fmtSeconds(history.weekSeconds)} · Total neste concurso ${fmtSeconds(history.totalSeconds)}` : 'Histórico será exibido após a primeira sincronização com a nuvem.';
+    $('#timerHistory').textContent = history ? `Ontem ${fmtSeconds(history.yesterdaySeconds)} · Semana ${fmtSeconds(history.weekSeconds)} · Total ${fmtSeconds(history.totalSeconds)} · Específicas ${fmtSeconds(history.specificSeconds)} · Gerais ${fmtSeconds(history.generalSeconds)}${history.unclassifiedSeconds ? ` · Histórico sem área ${fmtSeconds(history.unclassifiedSeconds)}` : ''}` : 'Histórico será exibido após a primeira sincronização com a nuvem.';
     $('#dayProgress').style.width = `${Math.min(100, 100 * seconds / (state.targetMinutes * 60))}%`;
     $('#metricCadernos').textContent = String(evaluated.length);
     $('#metricCadernosSub').textContent = `${list.length} cadastrados · mínimo de ${contest.minQuestions} questões`;
@@ -600,6 +611,19 @@ function render() {
     renderAccount();
 }
 function focused() { return document.visibilityState === 'visible' && (document.hasFocus() || document.activeElement?.tagName === 'IFRAME'); }
+function rolloverStudyDay() {
+    const next = studyDate();
+    if (next === today)
+        return;
+    // Fecha a fração acumulada no dia anterior antes de trocar a chave diária.
+    if (timerRunning)
+        checkpointTimer('day-rollover', true);
+    today = next;
+    pendingSessionSeconds = 0;
+    timerLast = performance.now();
+    currentDay();
+    saveState();
+}
 function checkpointTimer(reason = 'checkpoint', force = false) {
     if (!force && pendingSessionSeconds < 30)
         return;
@@ -607,8 +631,8 @@ function checkpointTimer(reason = 'checkpoint', force = false) {
         return;
     const seconds = Math.round(pendingSessionSeconds), type = $('#sessionType').value;
     currentDay().seconds += seconds;
-    currentDay().sessions.push({ type, seconds, endedAt: new Date().toISOString(), reason });
-    recordEvent(eventTypeForSession(type), reason === 'player' ? 'youtube-embed' : 'nexame', seconds, { reason });
+    currentDay().sessions.push({ type, seconds, endedAt: new Date().toISOString(), reason, subject: timerSubject });
+    recordEvent(eventTypeForSession(type), reason === 'player' ? 'youtube-embed' : 'nexame', seconds, { reason, subject: timerSubject });
     pendingSessionSeconds = 0;
     // localStorage é síncrono: mesmo que a aba seja recarregada antes do envio
     // à nuvem, pullCloud preserva esta sessão pendente e a envia na próxima carga.
@@ -617,6 +641,7 @@ function checkpointTimer(reason = 'checkpoint', force = false) {
 function timerLoop() {
     if (!timerRunning)
         return;
+    rolloverStudyDay();
     const now = performance.now();
     if (focused() && timerLast)
         pendingSessionSeconds += Math.max(0, Math.min(5, (now - timerLast) / 1000));
@@ -743,8 +768,9 @@ window.addEventListener('message', (event) => {
             if (!delta || !key.endsWith(`:${today}`))
                 continue;
             currentDay().seconds += delta;
-            currentDay().sessions.push({ type: 'tec', seconds: delta, endedAt: payload.generatedAt || new Date().toISOString(), reason: 'plataforma de questões' });
-            recordEvent('question_session', 'nexame-connector', delta, { platformTotalKey: key });
+            const parts = key.split(':'), subject = parts.length >= 3 && parts.at(-2) === 'general' ? 'general' : 'specific';
+            currentDay().sessions.push({ type: 'tec', seconds: delta, endedAt: payload.generatedAt || new Date().toISOString(), reason: 'plataforma de questões', subject });
+            recordEvent('question_session', 'nexame-connector', delta, { platformTotalKey: key, subject });
         }
         if (Array.isArray(payload.cadernos) && payload.cadernos.length)
             importRecords(payload, 'extensão Nexame · plataforma de questões');
@@ -762,6 +788,7 @@ window.addEventListener('message', (event) => {
         window.NexamePdfLibrary?.attach(frame?.contentDocument, event.data.code);
         if (event.data.playing) {
             if (frame?.closest('#specific') || frame?.closest('#general')) {
+                timerSubject = frame?.closest('#general') ? 'general' : 'specific';
                 $('#sessionType').value = 'video';
                 $('#hudSessionType').value = 'video';
             }
@@ -791,6 +818,8 @@ window.addEventListener('message', (event) => {
 const requestedView = location.hash.slice(1);
 if (['specific', 'general', 'settings'].includes(requestedView))
     openView(requestedView);
+window.setInterval(() => { const before = today; rolloverStudyDay(); if (today !== before)
+    render(); }, 30_000);
 render();
 void initCloud();
 void loadRoadmap();
