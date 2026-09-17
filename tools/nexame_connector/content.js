@@ -1,9 +1,25 @@
 (function () {
   'use strict';
   const APP_ORIGIN = 'https://asmeduardo.github.io';
+  // Uma aba que já estava aberta perde o contexto quando a extensão é
+  // atualizada. Nunca deixe um timer antigo gerar erro no console do usuário.
+  const extensionAlive = () => {
+    try { return Boolean(chrome?.runtime?.id); } catch { return false; }
+  };
+  const send = (message, callback) => {
+    if (!extensionAlive()) return;
+    try {
+      chrome.runtime.sendMessage(message, (result) => {
+        try {
+          if (!extensionAlive() || chrome.runtime.lastError) return;
+          callback?.(result);
+        } catch { /* extensão foi recarregada; a aba será atualizada pelo Chrome */ }
+      });
+    } catch { /* extensão foi recarregada; não há nada a sincronizar nesta aba */ }
+  };
   if (location.origin === APP_ORIGIN) {
     let lastSnapshot = '';
-    const request = () => chrome.runtime.sendMessage({ type: 'get_snapshot' }, (result) => {
+    const request = () => send({ type: 'get_snapshot' }, (result) => {
       if (chrome.runtime.lastError || !result?.ok || !result.snapshot) return;
       const stamp = String(result.snapshot.generatedAt || '');
       if (stamp === lastSnapshot) return;
@@ -70,9 +86,9 @@
     if (!unique.length) return;
     const attempt = questionAttempt(), payload = JSON.stringify({ version: 3, source: 'nexame-connector', sourcePlatform: adapter.platform, generatedAt: new Date().toISOString(), cadernos: unique, questionAttempts: attempt ? [attempt] : [] });
     if (payload === lastPayload) return; lastPayload = payload;
-    chrome.runtime.sendMessage({ type: 'ingest', payload }, (result) => { if (!chrome.runtime.lastError && result?.ok) badge(`Nexame atualizado · ${adapter.platform}`); });
+    send({ type: 'ingest', payload }, (result) => { if (result?.ok) badge(`Nexame atualizado · ${adapter.platform}`); });
   }
-  function trackStudyTime() { const now = Date.now(), elapsed = Math.min(20, Math.max(0, (now - studyLast) / 1000)); studyLast = now; if (document.visibilityState !== 'visible' || !document.hasFocus() || !adapter.cadernoPath.test(location.pathname)) return; studyWhole += elapsed; const seconds = Math.floor(studyWhole); if (!seconds) return; studyWhole -= seconds; chrome.runtime.sendMessage({ type: 'study_time', platform: adapter.platform, date: new Date().toISOString().slice(0, 10), seconds }); }
+  function trackStudyTime() { const now = Date.now(), elapsed = Math.min(20, Math.max(0, (now - studyLast) / 1000)); studyLast = now; if (document.visibilityState !== 'visible' || !document.hasFocus() || !adapter.cadernoPath.test(location.pathname)) return; studyWhole += elapsed; const seconds = Math.floor(studyWhole); if (!seconds) return; studyWhole -= seconds; send({ type: 'study_time', platform: adapter.platform, date: new Date().toISOString().slice(0, 10), seconds }); }
   function badge(label) { let node = document.getElementById('nexame-connector-status'); if (!node) { node = document.createElement('div'); node.id = 'nexame-connector-status'; node.style.cssText = 'position:fixed;right:14px;bottom:14px;z-index:2147483647;background:#0f766e;color:#ecfeff;padding:7px 10px;border-radius:8px;font:12px system-ui;box-shadow:0 2px 10px #0005'; document.body.appendChild(node); } if (node.textContent !== label) node.textContent = label; }
   collect();
   new MutationObserver(() => { if (timer !== null) return; timer = setTimeout(() => { timer = null; collect(); }, 500); }).observe(document.documentElement, { childList: true, subtree: true });

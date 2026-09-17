@@ -25,6 +25,7 @@ state.daily ||= {};
 state.events ||= [];
 state.questionAttempts ||= [];
 state.platformStudyTotals ||= {};
+state.timeSummaries ||= {};
 Object.values(state.cadernos).forEach((c) => {
     c.contestId ||= state.activeContestId;
     // Corrige snapshots antigos da extensão que misturavam o total de outra
@@ -104,6 +105,7 @@ function fmtSeconds(total, short = false) {
     const h = Math.floor(total / 3600), m = Math.floor(total % 3600 / 60), s = total % 60;
     return short ? `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
+function fmtMinutes(minutes) { return fmtSeconds(Math.max(0, minutes) * 60); }
 function fmtDate(value) {
     if (!value)
         return 'nunca';
@@ -187,6 +189,16 @@ async function pullCloud() {
         type: String(raw.session_type || 'review'), seconds: numberValue(raw.seconds), endedAt: String(raw.ended_at || new Date().toISOString()), reason: String(raw.source || 'cloud'), uploaded: true
     }));
     state.daily[dayKey()] = { seconds: remoteSessions.reduce((sum, session) => sum + session.seconds, 0) + localPending.reduce((sum, session) => sum + session.seconds, 0), sessions: [...remoteSessions, ...localPending] };
+    // O relógio principal é diário, mas o histórico precisa permanecer visível
+    // após a virada do dia. O banco devolve apenas agregados do próprio usuário.
+    const summaryResult = await cloud.rpc('study_time_summary', { p_contest_id: state.activeContestId, p_today: today });
+    if (!summaryResult.error && summaryResult.data) {
+        const raw = Array.isArray(summaryResult.data) ? summaryResult.data[0] : summaryResult.data;
+        state.timeSummaries[state.activeContestId] = {
+            todaySeconds: numberValue(raw?.today_seconds), yesterdaySeconds: numberValue(raw?.yesterday_seconds),
+            weekSeconds: numberValue(raw?.week_seconds), totalSeconds: numberValue(raw?.total_seconds), updatedAt: new Date().toISOString()
+        };
+    }
     const progressResult = await cloud.from('study_content_progress').select('*').eq('user_id', cloudUserId).eq('contest_id', state.activeContestId);
     if (progressResult.error)
         throw new Error(progressResult.error.message);
@@ -383,7 +395,7 @@ function weightedAccuracy(list) { const measured = list.filter((item) => item.at
 function readiness(list) { const measured = list.filter((item) => item.attempted > 0), total = measured.reduce((sum, item) => sum + item.attempted * (item.subject === 'specific' ? activeContest().specificWeight : activeContest().generalWeight), 0); if (!total)
     return { estimate: 0, confidence: 0 }; return { estimate: measured.reduce((sum, item) => sum + item.d.smooth * item.attempted * (item.subject === 'specific' ? activeContest().specificWeight : activeContest().generalWeight), 0) / total, confidence: measured.reduce((sum, item) => sum + item.d.confidence * item.attempted, 0) / measured.reduce((sum, item) => sum + item.attempted, 0) }; }
 function renderDecision(list) { const target = $('#decisionText'), phaseBadge = $('#phaseBadge'); if (!target || !phaseBadge)
-    return; const phase = studyPhase(), bands = accuracyBands(), studied = currentDay().seconds / 60, remaining = Math.max(0, Math.ceil(state.targetMinutes - studied)), accuracy = weightedAccuracy(list), forecast = readiness(list), recovery = list.filter((item) => item.d.eligible && item.d.raw < bands.recovery).length; phaseBadge.textContent = phase.label; phaseBadge.className = `badge ${phase.key === 'vespera' || phase.key === 'reta-final' ? 'warn' : phase.key === 'pre-edital' ? 'neutral' : 'good'}`; let title = '', action = ''; if (!list.length) {
+    return; const phase = studyPhase(), bands = accuracyBands(), studied = currentDay().seconds / 60, remaining = Math.max(0, Math.ceil(state.targetMinutes - studied)), remainingLabel = fmtMinutes(remaining), accuracy = weightedAccuracy(list), forecast = readiness(list), recovery = list.filter((item) => item.d.eligible && item.d.raw < bands.recovery).length; phaseBadge.textContent = phase.label; phaseBadge.className = `badge ${phase.key === 'vespera' || phase.key === 'reta-final' ? 'warn' : phase.key === 'pre-edital' ? 'neutral' : 'good'}`; let title = '', action = ''; if (!list.length) {
     title = 'Aguardando a primeira leitura automática das plataformas';
     action = 'Enquanto isso, o sistema mantém a trilha de conteúdo disponível e registra seu tempo nos players.';
 }
@@ -393,11 +405,11 @@ else if (!remaining) {
 }
 else if (recovery) {
     title = `${recovery} assunto(s) abaixo da faixa de recuperação (${bands.recovery}%)`;
-    action = `Dedique os próximos ${remaining} min a teoria objetiva + questões novas dos maiores riscos.`;
+    action = `Dedique os próximos ${remainingLabel} a teoria objetiva + questões novas dos maiores riscos.`;
 }
 else if (!accuracy) {
     title = 'Ainda sem amostra suficiente de desempenho';
-    action = `Use ${remaining} min para cobrir a base e resolver questões novas para calibrar o plano.`;
+    action = `Use ${remainingLabel} para cobrir a base e resolver questões novas para calibrar o plano.`;
 }
 else if (forecast.estimate >= bands.target && forecast.confidence >= .7) {
     title = `Objetivo de ${bands.target}% sustentado pela amostra`;
@@ -405,11 +417,11 @@ else if (forecast.estimate >= bands.target && forecast.confidence >= .7) {
 }
 else if (phase.key === 'reta-final' || phase.key === 'vespera') {
     title = `Consolidar rumo à meta de ${bands.target}% (${forecast.estimate.toFixed(1)}% estimado)`;
-    action = `Priorize erros, revisão e simulado; evite abrir assuntos de baixo retorno nos ${remaining} min restantes.`;
+    action = `Priorize erros, revisão e simulado; evite abrir assuntos de baixo retorno nos ${remainingLabel} restantes.`;
 }
 else {
     title = `Avançar rumo à meta de ${bands.target}% (${forecast.estimate.toFixed(1)}% estimado)`;
-    action = `${phase.description} Restam ${remaining} min da disponibilidade de hoje.`;
+    action = `${phase.description} Restam ${remainingLabel} da disponibilidade de hoje.`;
 } target.innerHTML = `<span class="badge ${recovery ? 'bad' : 'good'}">${recovery ? 'RECUPERAÇÃO' : 'PRÓXIMA AÇÃO'}</span><div><strong>${esc(title)}</strong><div>${esc(action)}</div><div class="muted">Confiança da estimativa: ${Math.round(forecast.confidence * 100)}% · ${phase.description} · ${daysUntilExam() ? `${daysUntilExam()} dias até a prova` : 'data da prova ainda não definida'}.</div></div>`; }
 function errorSignals() {
     const groups = new Map();
@@ -464,8 +476,8 @@ function dailyPlan(list = ranked()) {
 }
 function renderHud(list = ranked()) {
     const seconds = currentDay().seconds + pendingSessionSeconds, recovery = list.filter((x) => x.d.eligible && x.d.raw < accuracyBands().recovery), next = list[0];
-    $('#hudTime').textContent = fmtSeconds(seconds, true);
-    $('#hudTarget').textContent = `${activeContest().targetAccuracy}% · ${state.targetMinutes} min`;
+    $('#hudTime').textContent = fmtSeconds(seconds);
+    $('#hudTarget').textContent = `${activeContest().targetAccuracy}% · ${fmtMinutes(state.targetMinutes)}`;
     $('#hudRecovery').textContent = String(recovery.length);
     $('#hudRecovery').style.color = recovery.length ? '#fb7185' : '#34d399';
     $('#hudNext').textContent = next ? next.name : 'Aguardando dados';
@@ -564,8 +576,10 @@ function render() {
     renderContestControls();
     $('#targetMinutes').value = String(state.targetMinutes);
     $('#goalAccuracy').value = String(contest.targetAccuracy);
-    $('#metricTime').textContent = fmtSeconds(seconds, true);
-    $('#metricTimeSub').textContent = `${Math.min(100, Math.round(100 * seconds / (state.targetMinutes * 60)))}% da meta de ${state.targetMinutes} min`;
+    $('#metricTime').textContent = fmtSeconds(seconds);
+    const history = state.timeSummaries?.[state.activeContestId];
+    $('#metricTimeSub').textContent = `${Math.min(100, Math.round(100 * seconds / (state.targetMinutes * 60)))}% da meta de ${fmtMinutes(state.targetMinutes)}`;
+    $('#timerHistory').textContent = history ? `Ontem ${fmtSeconds(history.yesterdaySeconds)} · Semana ${fmtSeconds(history.weekSeconds)} · Total neste concurso ${fmtSeconds(history.totalSeconds)}` : 'Histórico será exibido após a primeira sincronização com a nuvem.';
     $('#dayProgress').style.width = `${Math.min(100, 100 * seconds / (state.targetMinutes * 60))}%`;
     $('#metricCadernos').textContent = String(evaluated.length);
     $('#metricCadernosSub').textContent = `${list.length} cadastrados · mínimo de ${contest.minQuestions} questões`;
@@ -586,9 +600,30 @@ function render() {
     renderAccount();
 }
 function focused() { return document.visibilityState === 'visible' && (document.hasFocus() || document.activeElement?.tagName === 'IFRAME'); }
-function timerLoop() { if (!timerRunning)
-    return; const now = performance.now(); if (focused() && timerLast)
-    pendingSessionSeconds += Math.max(0, Math.min(5, (now - timerLast) / 1000)); timerLast = now; renderTimer(); }
+function checkpointTimer(reason = 'checkpoint', force = false) {
+    if (!force && pendingSessionSeconds < 30)
+        return;
+    if (pendingSessionSeconds < 1)
+        return;
+    const seconds = Math.round(pendingSessionSeconds), type = $('#sessionType').value;
+    currentDay().seconds += seconds;
+    currentDay().sessions.push({ type, seconds, endedAt: new Date().toISOString(), reason });
+    recordEvent(eventTypeForSession(type), reason === 'player' ? 'youtube-embed' : 'nexame', seconds, { reason });
+    pendingSessionSeconds = 0;
+    // localStorage é síncrono: mesmo que a aba seja recarregada antes do envio
+    // à nuvem, pullCloud preserva esta sessão pendente e a envia na próxima carga.
+    saveState();
+}
+function timerLoop() {
+    if (!timerRunning)
+        return;
+    const now = performance.now();
+    if (focused() && timerLast)
+        pendingSessionSeconds += Math.max(0, Math.min(5, (now - timerLast) / 1000));
+    timerLast = now;
+    checkpointTimer('checkpoint');
+    renderTimer();
+}
 function startTimer(source = 'manual') { if (source === 'manual')
     manualPause = false; if (timerRunning)
     return; if (playerPauseTick)
@@ -596,14 +631,7 @@ function startTimer(source = 'manual') { if (source === 'manual')
 function pauseTimer(reason = 'manual') { if (reason === 'manual' || reason === 'hud')
     manualPause = true; if (!timerRunning)
     return; timerLoop(); timerRunning = false; if (timerTick)
-    window.clearInterval(timerTick); timerTick = null; if (pendingSessionSeconds >= 1) {
-    const seconds = Math.round(pendingSessionSeconds), type = $('#sessionType').value;
-    currentDay().seconds += seconds;
-    currentDay().sessions.push({ type, seconds, endedAt: new Date().toISOString(), reason });
-    recordEvent(eventTypeForSession(type), reason === 'player' ? 'youtube-embed' : 'nexame', seconds, { reason });
-    pendingSessionSeconds = 0;
-    saveState();
-} render(); }
+    window.clearInterval(timerTick); timerTick = null; checkpointTimer(reason, true); render(); }
 function parseCSV(text) { const rows = []; let row = [], cell = '', quoted = false; for (let i = 0; i < text.length; i++) {
     const ch = text[i], next = text[i + 1];
     if (ch === '"' && quoted && next === '"') {
