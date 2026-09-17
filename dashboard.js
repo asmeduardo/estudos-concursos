@@ -24,7 +24,15 @@ state.contentProgress ||= {};
 state.daily ||= {};
 state.events ||= [];
 state.questionAttempts ||= [];
-Object.values(state.cadernos).forEach((c) => { c.contestId ||= state.activeContestId; });
+state.platformStudyTotals ||= {};
+Object.values(state.cadernos).forEach((c) => {
+    c.contestId ||= state.activeContestId;
+    // Corrige snapshots antigos da extensão que misturavam o total de outra
+    // área da página com os acertos/erros do caderno aberto. Em plataformas de
+    // questões, acertos + erros é a quantidade efetivamente resolvida.
+    if (/^(tec|qconcursos)$/i.test(c.sourcePlatform || '') && c.correct + c.incorrect > 0 && c.attempted !== c.correct + c.incorrect)
+        c.attempted = c.correct + c.incorrect;
+});
 Object.entries(state.cadernos).filter(([key]) => !key.includes('::')).forEach(([key, c]) => { delete state.cadernos[key]; state.cadernos[cadernoKey(c.id, c.contestId)] = c; });
 const legacyDay = state.daily[today];
 if (legacyDay && !state.daily[`${state.activeContestId}::${today}`])
@@ -104,7 +112,7 @@ function fmtDate(value) {
 }
 function numberValue(value) { return Number(String(value ?? '').replace('%', '').replace(',', '.')) || 0; }
 function normalize(raw, index = 0) {
-    const attempted = numberValue(raw.attempted ?? raw.respondidas ?? raw.resolvidas ?? raw.total);
+    let attempted = numberValue(raw.attempted ?? raw.respondidas ?? raw.resolvidas ?? raw.total);
     const accuracy = numberValue(raw.accuracy ?? raw.aproveitamento ?? raw.percentualAcerto);
     let correct = numberValue(raw.correct ?? raw.acertos ?? raw.certas);
     if (!correct && attempted && accuracy)
@@ -113,7 +121,15 @@ function normalize(raw, index = 0) {
     const id = String(raw.id ?? raw.cadernoId ?? raw.codigo ?? `local-${index}-${name.toLowerCase().replace(/\W+/g, '-')}`);
     const area = String(raw.subject ?? raw.area ?? raw.disciplina ?? 'specific').toLowerCase();
     const subject = /geral|portugu|ingl[eê]s|matem|racioc|rlm|legisla|atualidade|conhecimentos gerais/.test(area) ? 'general' : 'specific';
-    return { id, contestId: String(raw.contestId ?? raw.contest_id ?? state.activeContestId), name, subject, sourcePlatform: String(raw.sourcePlatform ?? raw.source_platform ?? ''), topic: String(raw.topic ?? raw.assunto ?? ''), attempted: Math.max(0, attempted), correct: Math.max(0, Math.min(correct, attempted || correct)), incorrect: Math.max(0, numberValue(raw.incorrect ?? raw.erros) || attempted - correct), repeatErrors: numberValue(raw.repeatErrors ?? raw.errosRepetidos), lastAttemptAt: String(raw.lastAttemptAt ?? raw.ultimoEstudo ?? raw.lastAttempt ?? '') || null, updatedAt: new Date().toISOString() };
+    const sourcePlatform = String(raw.sourcePlatform ?? raw.source_platform ?? '');
+    const explicitIncorrect = numberValue(raw.incorrect ?? raw.erros);
+    // O conector só envia uma linha quando conseguiu ler o tripé completo
+    // resolvidas/acertos/erros. Dê preferência a ele, nunca a um número solto
+    // encontrado na página (por exemplo, “questão 44”).
+    if (/^(tec|qconcursos)$/i.test(sourcePlatform) && correct + explicitIncorrect > 0)
+        attempted = correct + explicitIncorrect;
+    const incorrect = explicitIncorrect || Math.max(0, attempted - correct);
+    return { id, contestId: String(raw.contestId ?? raw.contest_id ?? state.activeContestId), name, subject, sourcePlatform, topic: String(raw.topic ?? raw.assunto ?? ''), attempted: Math.max(0, attempted), correct: Math.max(0, Math.min(correct, attempted || correct)), incorrect: Math.max(0, incorrect), repeatErrors: numberValue(raw.repeatErrors ?? raw.errosRepetidos), lastAttemptAt: String(raw.lastAttemptAt ?? raw.ultimoEstudo ?? raw.lastAttempt ?? '') || null, updatedAt: new Date().toISOString() };
 }
 function cloudConfigured() {
     const cfg = window.__SUPABASE_CONFIG__;
@@ -335,6 +351,9 @@ function diagnosis(c) {
     const raw = c.attempted ? 100 * c.correct / c.attempted : 0;
     const smooth = c.attempted ? 100 * (c.correct + 5) / (c.attempted + 10) : 0;
     const minimum = activeContest().minQuestions || MIN_SAMPLE, eligible = c.attempted >= minimum, bands = accuracyBands();
+    // Meta é a direção (100% por padrão), não uma licença para classificar 95%
+    // como problema. A faixa forte exige apenas manutenção espaçada.
+    const strong = Math.max(bands.consolidation, bands.target - 10);
     let status = 'neutral';
     if (eligible && raw < bands.recovery)
         status = 'bad';
@@ -345,10 +364,12 @@ function diagnosis(c) {
     const days = c.lastAttemptAt ? Math.max(0, (Date.now() - new Date(c.lastAttemptAt).getTime()) / 86400000) : 14;
     const contest = activeContest(), recency = 1 + Math.min(days / 14, 1), repeat = 1 + Math.min(c.repeatErrors / 5, 1), weight = c.subject === 'specific' ? contest.specificWeight : contest.generalWeight;
     const coverage = c.coverage === 'missing' ? 1.5 : c.coverage === 'partial' ? 1.2 : 1;
-    const gap = Math.max(0, bands.target - smooth) / 100, maintenance = raw >= bands.target ? Math.min(days / 60, .08) : 0;
+    if (eligible && raw >= strong)
+        status = 'good';
+    const gap = raw >= strong ? 0 : Math.max(0, bands.target - smooth) / 100, maintenance = raw >= strong ? Math.min(days / 60, .08) : 0;
     const confidence = Math.min(.95, Math.max(.15, Math.sqrt(c.attempted) / 10));
     const risk = eligible ? weight * (gap + maintenance) * recency * repeat * coverage * (1.15 - confidence * .15) : 0;
-    const action = !eligible ? `Resolver ${Math.max(0, minimum - c.attempted)} questões novas para medir` : raw < bands.critical ? 'Reaprender a teoria + questões graduais' : raw < bands.recovery ? 'Recuperação dirigida + 15 questões novas' : raw < bands.consolidation ? 'Consolidar erros + 12 questões novas' : raw < bands.target ? `Fechar a lacuna até ${bands.target}%` : 'Manutenção espaçada para sustentar a meta';
+    const action = !eligible ? `Resolver ${Math.max(0, minimum - c.attempted)} questões novas para medir` : raw < bands.critical ? 'Reaprender a teoria + questões graduais' : raw < bands.recovery ? 'Recuperação dirigida + 15 questões novas' : raw < bands.consolidation ? 'Consolidar erros + 12 questões novas' : raw < strong ? `Ajustar os erros até a faixa forte (${strong}%)` : 'Manutenção espaçada para sustentar o domínio';
     return { raw, smooth, confidence, eligible, status, risk, action };
 }
 function ranked() { return Object.values(state.cadernos).filter((c) => c.contestId === state.activeContestId).map((c) => ({ ...c, d: diagnosis(c) })).sort((a, b) => b.d.risk - a.d.risk || a.name.localeCompare(b.name, 'pt-BR')); }
@@ -390,6 +411,27 @@ else {
     title = `Avançar rumo à meta de ${bands.target}% (${forecast.estimate.toFixed(1)}% estimado)`;
     action = `${phase.description} Restam ${remaining} min da disponibilidade de hoje.`;
 } target.innerHTML = `<span class="badge ${recovery ? 'bad' : 'good'}">${recovery ? 'RECUPERAÇÃO' : 'PRÓXIMA AÇÃO'}</span><div><strong>${esc(title)}</strong><div>${esc(action)}</div><div class="muted">Confiança da estimativa: ${Math.round(forecast.confidence * 100)}% · ${phase.description} · ${daysUntilExam() ? `${daysUntilExam()} dias até a prova` : 'data da prova ainda não definida'}.</div></div>`; }
+function errorSignals() {
+    const groups = new Map();
+    for (const attempt of state.questionAttempts || []) {
+        if (attempt.contestId !== state.activeContestId || attempt.correct)
+            continue;
+        const topic = String(attempt.metadata?.topic || 'Assunto não identificado').replace(/\s+/g, ' ').trim();
+        const key = topic.toLocaleLowerCase('pt-BR');
+        const group = groups.get(key) || { topic, attempts: 0, errors: 0 };
+        group.attempts++;
+        group.errors++;
+        groups.set(key, group);
+    }
+    const general = /portugu|ingl[eê]s|matem|racioc|rlm|legisla|atualidade/.test.bind(/portugu|ingl[eê]s|matem|racioc|rlm|legisla|atualidade/);
+    return [...groups.values()].map((group) => {
+        const tokens = group.topic.toLocaleLowerCase('pt-BR').split(/[^\p{L}\p{N}]+/u).filter((token) => token.length > 3);
+        const content = roadmapItems.map((item) => ({ item, hits: tokens.filter((token) => `${item.area} ${item.title} ${item.tec}`.toLocaleLowerCase('pt-BR').includes(token)).length })).sort((a, b) => b.hits - a.hits)[0];
+        const mapped = Boolean(content?.hits);
+        const subject = general(group.topic.toLocaleLowerCase('pt-BR')) ? 'general' : 'specific';
+        return { ...group, subject, content: mapped ? content.item : undefined, coverage: (mapped ? 'mapped' : 'unmapped'), risk: group.errors * (mapped ? 1 : 1.7) * (subject === 'specific' ? activeContest().specificWeight : activeContest().generalWeight) };
+    }).sort((a, b) => b.risk - a.risk);
+}
 function dailyPlan(list = ranked()) {
     const available = Math.max(0, state.targetMinutes - Math.floor(currentDay().seconds / 60)), accuracy = weightedAccuracy(list), total = list.length && accuracy >= accuracyBands().target ? Math.min(available, 60) : available, specific = list.filter((item) => item.subject === 'specific'), general = list.filter((item) => item.subject === 'general');
     if (total < 5)
@@ -399,8 +441,18 @@ function dailyPlan(list = ranked()) {
     const contest = activeContest(), weightRatio = contest.specificWeight / (contest.specificWeight + contest.generalWeight), specificShare = Math.max(.45, Math.min(.85, weightRatio + imbalance * .12));
     const minutesBySubject = { specific: Math.round(total * specificShare), general: total - Math.round(total * specificShare) };
     const blocks = [];
+    const forced = errorSignals().slice(0, 2);
+    for (const signal of forced) {
+        const minutes = Math.min(25, Math.max(0, minutesBySubject[signal.subject]));
+        if (!minutes)
+            continue;
+        minutesBySubject[signal.subject] -= minutes;
+        blocks.push({ subject: signal.subject, topic: signal.topic, minutes, mode: 'correction', risk: signal.risk, action: signal.coverage === 'mapped' ? `Erro detectado: reveja ${signal.content.code} — ${signal.content.title}; depois faça questões novas.` : 'Erro sem conteúdo mapeado: o Nexame sinalizou lacuna para complemento e revisão dirigida.' });
+    }
     ['specific', 'general'].forEach((subject) => {
         const pool = list.filter((item) => item.subject === subject).slice(0, 4), fallback = subject === 'specific' ? 'Específicas — cobertura e recuperação' : 'Gerais — revisão e questões';
+        if (!minutesBySubject[subject])
+            return;
         if (!pool.length) {
             blocks.push({ subject, topic: fallback, minutes: minutesBySubject[subject], mode: 'review', action: 'Adicionar resultados de uma plataforma de questões para calibrar', risk: 0 });
             return;
@@ -421,7 +473,7 @@ function renderHud(list = ranked()) {
     $('#hudSync').textContent = state.sync ? fmtDate(state.sync.at) : 'local';
 }
 function renderTimer() { const seconds = currentDay().seconds + pendingSessionSeconds; $('#clock').textContent = fmtSeconds(seconds); $('#timerStatus').textContent = timerRunning ? (focused() ? 'Estudando' : 'Pausado: página fora de foco') : 'Aguardando atividade'; $('#timerToggle').textContent = timerRunning ? 'Pausar sessão' : 'Iniciar sessão'; $('#hudTimerToggle').textContent = timerRunning ? 'Pausar' : 'Iniciar'; $('#hudSessionType').value = $('#sessionType').value; renderHud(); }
-function renderTable(list) { const bands = accuracyBands(); $('#cadernosEmpty').style.display = list.length ? 'none' : 'block'; $('#cadernosBody').innerHTML = list.map((x) => { const d = x.d, pct = x.attempted ? d.raw : 0; return `<tr><td><strong>${esc(x.name)}</strong><small>${esc(x.topic)}</small></td><td>${x.subject === 'specific' ? 'Específicas' : 'Gerais'}</td><td><div>${pct.toFixed(1)}%</div><div class="bar"><span class="${d.status}" style="width:${Math.min(100, pct)}%"></span></div></td><td>${x.correct}/${x.attempted}<small>${x.repeatErrors || 0} erros repetidos</small></td><td><span class="badge ${d.status}">${d.eligible ? (d.raw < bands.recovery ? 'RECUPERAÇÃO' : d.raw < bands.consolidation ? 'CONSOLIDAÇÃO' : d.raw < bands.target ? 'QUASE NA META' : 'META ATINGIDA') : 'AMOSTRA PEQUENA'}</span></td><td>${esc(d.action)}</td></tr>`; }).join(''); }
+function renderTable(list) { const bands = accuracyBands(), strong = Math.max(bands.consolidation, bands.target - 10); $('#cadernosEmpty').style.display = list.length ? 'none' : 'block'; $('#cadernosBody').innerHTML = list.map((x) => { const d = x.d, pct = x.attempted ? d.raw : 0; return `<tr><td><strong>${esc(x.name)}</strong><small>${esc(x.topic)}</small></td><td>${x.subject === 'specific' ? 'Específicas' : 'Gerais'}</td><td><div>${pct.toFixed(1)}%</div><div class="bar"><span class="${d.status}" style="width:${Math.min(100, pct)}%"></span></div></td><td>${x.correct}/${x.attempted}<small>${x.repeatErrors || 0} erros repetidos</small></td><td><span class="badge ${d.status}">${d.eligible ? (d.raw < bands.recovery ? 'RECUPERAÇÃO' : d.raw < bands.consolidation ? 'CONSOLIDAÇÃO' : d.raw < strong ? 'EM EVOLUÇÃO' : 'DOMÍNIO FORTE') : 'AMOSTRA PEQUENA'}</span></td><td>${esc(d.action)}</td></tr>`; }).join(''); }
 function renderDailyPlan(list) {
     const target = $('#dailyPlan'), blocks = dailyPlan(list);
     if (!target)
@@ -595,7 +647,11 @@ catch (error) {
 } }; reader.readAsText(file); }
 function exportData() { const blob = new Blob([JSON.stringify({ version: 1, exportedAt: new Date().toISOString(), ...state }, null, 2)], { type: 'application/json' }); const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `estudos-${today}.json`; link.click(); URL.revokeObjectURL(link.href); }
 function mountPlayer(view) { const wrap = $(`#${view} .iframe-wrap`); if (!wrap || wrap.querySelector('iframe'))
-    return; const frame = document.createElement('iframe'); frame.src = wrap.dataset.playerSrc || ''; frame.title = wrap.dataset.playerTitle || ''; frame.loading = 'eager'; wrap.appendChild(frame); }
+    return; const frame = document.createElement('iframe'); frame.src = wrap.dataset.playerSrc || ''; frame.title = wrap.dataset.playerTitle || ''; frame.loading = 'eager'; frame.addEventListener('load', () => { try {
+    const code = frame.contentDocument?.querySelector('#position')?.textContent?.match(/·\s*([EG]\d+)/)?.[1];
+    window.NexamePdfLibrary?.attach(frame.contentDocument, code);
+}
+catch (_) { /* iframe remains usable if augmentation fails */ } }); wrap.appendChild(frame); }
 function openView(view) {
     const target = document.querySelector(`#${view}`);
     const tab = document.querySelector(`[data-view="${view}"]`);
@@ -653,6 +709,15 @@ window.addEventListener('message', (event) => {
         if (payload.generatedAt && payload.generatedAt === lastExtensionSnapshotAt)
             return;
         lastExtensionSnapshotAt = payload.generatedAt || new Date().toISOString();
+        for (const [key, totalValue] of Object.entries(payload.studyTotals || {})) {
+            const total = Math.max(0, Math.min(86400, Number(totalValue) || 0)), prior = state.platformStudyTotals[key] || 0, delta = Math.max(0, total - prior);
+            state.platformStudyTotals[key] = Math.max(prior, total);
+            if (!delta || !key.endsWith(`:${today}`))
+                continue;
+            currentDay().seconds += delta;
+            currentDay().sessions.push({ type: 'tec', seconds: delta, endedAt: payload.generatedAt || new Date().toISOString(), reason: 'plataforma de questões' });
+            recordEvent('question_session', 'nexame-connector', delta, { platformTotalKey: key });
+        }
         if (Array.isArray(payload.cadernos) && payload.cadernos.length)
             importRecords(payload, 'extensão Nexame · plataforma de questões');
         for (const attempt of payload.questionAttempts || []) {
@@ -665,8 +730,9 @@ window.addEventListener('message', (event) => {
         return;
     }
     if (event.data?.type === 'dataprev-study-state') {
+        const frame = [...document.querySelectorAll('iframe')].find((item) => item.contentWindow === event.source);
+        window.NexamePdfLibrary?.attach(frame?.contentDocument, event.data.code);
         if (event.data.playing) {
-            const frame = [...document.querySelectorAll('iframe')].find((item) => item.contentWindow === event.source);
             if (frame?.closest('#specific') || frame?.closest('#general')) {
                 $('#sessionType').value = 'video';
                 $('#hudSessionType').value = 'video';

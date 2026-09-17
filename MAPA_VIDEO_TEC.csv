@@ -35,7 +35,7 @@ E36,APIs,TEORIA COMPLEMENTAR,-GJuMIV3CIg,Swagger e OpenAPI,Documentação de API
 E37,Mensageria,TEORIA COMPLEMENTAR,_Uo14nxB_iA,RabbitMQ,Mensageria (Messaging),https://www.tecconcursos.com.br/questoes/cadernos/98201969/
 E38,Mensageria,TEORIA COMPLEMENTAR,qOqXz5Qv_-8,Kafka,Mensageria (Messaging),https://www.tecconcursos.com.br/questoes/cadernos/98201969/
 E39,Distribuídos,TEORIA COMPLEMENTAR,9lsizcU8Dkw,Saga versus 2PC,"Outras APIs (JDBC, JMS, JTA, etc.)",https://www.tecconcursos.com.br/questoes/cadernos/98202053/
-E40,Portais,TEORIA COMPLEMENTAR,A9P2WusFQU0,"Internet, intranet e extranet",,
+E40,Portais,TEORIA COMPLEMENTAR,jN15NgBTq6M,"Internet, intranet e extranet",,
 E41,Frontend,TEORIA COMPLEMENTAR,Es-6Ok0lsoI,React: state e ciclo de vida,React.js,https://www.tecconcursos.com.br/questoes/cadernos/98201885/
 E42,Frontend,TEORIA COMPLEMENTAR,8-3ZOdp_ZDo,"Angular, React e Vue",AngularJS | React.js | Framework Vue.js,https://www.tecconcursos.com.br/questoes/cadernos/98201889/ | https://www.tecconcursos.com.br/questoes/cadernos/98201885/ | https://www.tecconcursos.com.br/questoes/cadernos/98202074/
 E43,UX,TEORIA COMPLEMENTAR,vmvSMYaV4oE,Arquitetura da informação,Arquitetura da Informação (TI),https://www.tecconcursos.com.br/questoes/cadernos/98201980/
@@ -64,6 +64,17 @@ E67,Banco de dados,TEORIA COMPLEMENTAR,Mkc4qvjDiFA,"Dados estruturados, semiestr
 E68,DevOps,TEORIA COMPLEMENTAR,Zwv9qRyVeU4,Git: conceitos e principais comandos,Git,https://www.tecconcursos.com.br/questoes/cadernos/98202258/
 E70,Segurança,TEORIA COMPLEMENTAR,eOsGqXy2vmA,"SSL, TLS e HTTPS","TLS, SSL e HTTPS",https://www.tecconcursos.com.br/questoes/cadernos/98201916/
 E71,Java corporativo,TEORIA COMPLEMENTAR,jDknCQbMvaU,Java EE: introdução e questões,"Conceitos da Plataforma Java EE | Beans (JavaBeans, EJB, ManagedBeans, etc.) | Outras APIs (JDBC, JMS, JTA, etc.) | Mensageria (Messaging)",https://www.tecconcursos.com.br/questoes/cadernos/98202029/ | https://www.tecconcursos.com.br/questoes/cadernos/98202049/ | https://www.tecconcursos.com.br/questoes/cadernos/98202053/ | https://www.tecconcursos.com.br/questoes/cadernos/98201969/
+E72,Arquitetura,TEORIA COMPLEMENTAR,kYx1QC1XZSo,Arquitetura de software e design,,
+E73,Requisitos,TEORIA COMPLEMENTAR,yjkQN1HyiPk,"Engenharia de requisitos: elicitação, validação e gestão",,
+E74,Frontend,TEORIA COMPLEMENTAR,5bppHNxa4Uk,Ajax: teoria e prática,AJAX,https://www.tecconcursos.com.br/questoes/cadernos/98201886/
+E75,Frontend,TEORIA COMPLEMENTAR,Z4vOJGfmzWs,CSS para concursos,CSS,https://www.tecconcursos.com.br/questoes/cadernos/98201874/
+E76,BI,TEORIA COMPLEMENTAR,1Or7hCNQu9c,Fontes e qualidade de dados,Business Intelligence e Analytics,https://www.tecconcursos.com.br/questoes/cadernos/98201917/
+E77,Mobile,TEORIA COMPLEMENTAR,fmu1LQvZhms,"Ecossistema mobile: Android, iOS e híbrido","Desenvolvimento para Dispositivos Móveis (Android, IOS, etc.)",https://www.tecconcursos.com.br/questoes/cadernos/98201961/
+E78,Java corporativo,TEORIA COMPLEMENTAR,rChkWy2NFyQ,Java Transaction API (JTA),"Outras APIs (JDBC, JMS, JTA, etc.)",https://www.tecconcursos.com.br/questoes/cadernos/98202053/
+E79,Java corporativo,TEORIA COMPLEMENTAR,lsAyTeUUXHk,Java Messaging Service (JMS),Mensageria (Messaging),https://www.tecconcursos.com.br/questoes/cadernos/98201969/
+E80,BI,TEORIA COMPLEMENTAR,Dk0f54eUr80,Governança e gerenciamento de dados,Business Intelligence e Analytics,https://www.tecconcursos.com.br/questoes/cadernos/98201917/
+E81,Java corporativo,TEORIA COMPLEMENTAR,fJVkTs8A0zM,Servidor web x servidor de aplicações,"Conceitos da Plataforma Java EE; Beans (JavaBeans, EJB, etc.)","https://www.tecconcursos.com.br/questoes/cadernos/98202029/; https://www.tecconcursos.com.br/questoes/cadernos/98202049/"
+E82,Integração de dados,TEORIA COMPLEMENTAR,Ttxhm-6YHYA,Integração por arquivo TXT: layout e processamento,"Business Intelligence e Analytics; ETL (Extração, Transformação e Carga)","https://www.tecconcursos.com.br/questoes/cadernos/98201917/; https://www.tecconcursos.com.br/questoes/cadernos/98201929/"
 E31,Mobile,TEORIA POR QUESTÕES,uPQIoq3Kfhs,Android por questões comentadas,"Desenvolvimento para Dispositivos Móveis (Android, IOS, etc.)",https://www.tecconcursos.com.br/questoes/cadernos/98201961/
 E64,Segurança/Dados,TEORIA POR QUESTÕES,9GFT03_Q_2E,Blockchain para concursos,Blockchain e Smart Contracts,https://www.tecconcursos.com.br/questoes/cadernos/98201964/
 E69,DevOps,TEORIA POR QUESTÕES,_CgQJYEN0Y8,Kubernetes para concursos,"Contêineres (Docker, Kubernetes, etc.)",https://www.tecconcursos.com.br/questoes/cadernos/98202022/
@@ -79,7 +90,7 @@ G06,Português,MÓDULO,C8JPK8vBfa0,Concordância,P07 - Concordância,https://www
 G07,Português,MÓDULO,Ul6rogRczCs,Regência,P05 - Regência,https://www.tecconcursos.com.br/questoes/cadernos/98770003/
 G08,Português,MÓDULO,5uMooAjtVis,Crase,P06 - Crase,https://www.tecconcursos.com.br/questoes/cadernos/98770005/
 G09,Português,MÓDULO,6zsVwix7Uh0,Colocação pronominal,P11 - Colocação Pronominal,https://www.tecconcursos.com.br/questoes/cadernos/98770015/
-G10,Português,MÓDULO,G8Stjzy-87k,Pontuação,P04 - Pontuação,https://www.tecconcursos.com.br/questoes/cadernos/98770000/
+G10,Português,MÓDULO,3HcbvevjZLk,Pontuação e vírgula — FGV,P04 - Pontuação,https://www.tecconcursos.com.br/questoes/cadernos/98770000/
 G11,Português,MÓDULO,cQOl7Ejes00,Ortografia oficial,P10 - Ortografia e Acentuação,https://www.tecconcursos.com.br/questoes/cadernos/98770013/
 G12,Português,MÓDULO,f1vCAm294i8,Coesão e coerência,P04 - Coesão e Coerência,https://www.tecconcursos.com.br/questoes/cadernos/98769981/
 G13,Português,MÓDULO,IsVOh0ve8gg,Reescritura,"P03 - Tipologia, Gêneros e Reescrita",https://www.tecconcursos.com.br/questoes/cadernos/98769987/

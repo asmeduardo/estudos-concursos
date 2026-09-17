@@ -14,11 +14,14 @@ interface ContentProgress { player: string; code: string; seconds: number; compl
 interface RoadmapItem { code: string; area: string; layer: string; title: string; videoId: string; tec: string; }
 interface StudyEvent { id: string; contestId: string; topicId?: string; type: 'video_session' | 'question_session' | 'review_session' | 'simulation' | 'focus_pause' | 'content_progress'; source: string; seconds: number; endedAt: string; metadata?: Record<string, unknown>; uploaded?: boolean; }
 interface QuestionAttempt { id: string; contestId: string; externalQuestionId: string; cadernoId?: string; correct: boolean; attemptedAt: string; durationSeconds?: number; metadata?: Record<string, unknown>; uploaded?: boolean; }
-interface StudyState { targetMinutes: number; cadernos: Record<string, Caderno>; contests: Record<string, ContestConfig>; activeContestId: string; content?: Record<string, ContentItem[]>; contentProgress?: Record<string, ContentProgress>; sync?: { at: string; source: string } | null; daily: Record<string, { seconds: number; sessions: Session[] }>; events?: StudyEvent[]; questionAttempts?: QuestionAttempt[]; }
+interface StudyState { targetMinutes: number; cadernos: Record<string, Caderno>; contests: Record<string, ContestConfig>; activeContestId: string; content?: Record<string, ContentItem[]>; contentProgress?: Record<string, ContentProgress>; sync?: { at: string; source: string } | null; daily: Record<string, { seconds: number; sessions: Session[] }>; events?: StudyEvent[]; questionAttempts?: QuestionAttempt[]; platformStudyTotals?: Record<string, number>; }
 interface Diagnosis { raw: number; smooth: number; confidence: number; eligible: boolean; status: Status; risk: number; action: string; }
 type Ranked = Caderno & { d: Diagnosis };
 type StudyPhase = 'pre-edital' | 'base' | 'consolidacao' | 'reta-final' | 'vespera';
 interface StudyBlock { subject: Subject; topic: string; minutes: number; mode: 'video' | 'tec' | 'correction' | 'review'; action: string; risk: number; }
+interface ErrorSignal { topic: string; subject: Subject; attempts: number; errors: number; risk: number; content?: RoadmapItem; coverage: 'mapped' | 'unmapped'; }
+interface NexamePdfLibrary { attach(target: Document | null | undefined, code: string | undefined): void; }
+interface Window { NexamePdfLibrary?: NexamePdfLibrary; }
 
 const KEY = 'study-dashboard-state-v2';
 const LEGACY_KEY = 'dataprev-study-state-v1';
@@ -44,7 +47,14 @@ state.contentProgress ||= {};
 state.daily ||= {};
 state.events ||= [];
 state.questionAttempts ||= [];
-Object.values(state.cadernos).forEach((c) => { c.contestId ||= state.activeContestId; });
+state.platformStudyTotals ||= {};
+Object.values(state.cadernos).forEach((c) => {
+  c.contestId ||= state.activeContestId;
+  // Corrige snapshots antigos da extensão que misturavam o total de outra
+  // área da página com os acertos/erros do caderno aberto. Em plataformas de
+  // questões, acertos + erros é a quantidade efetivamente resolvida.
+  if (/^(tec|qconcursos)$/i.test(c.sourcePlatform || '') && c.correct + c.incorrect > 0 && c.attempted !== c.correct + c.incorrect) c.attempted = c.correct + c.incorrect;
+});
 Object.entries(state.cadernos).filter(([key]) => !key.includes('::')).forEach(([key, c]) => { delete state.cadernos[key]; state.cadernos[cadernoKey(c.id, c.contestId)] = c; });
 const legacyDay = state.daily[today];
 if (legacyDay && !state.daily[`${state.activeContestId}::${today}`]) state.daily[`${state.activeContestId}::${today}`] = legacyDay;
@@ -118,7 +128,7 @@ function fmtDate(value: string | null | undefined): string {
 }
 function numberValue(value: unknown): number { return Number(String(value ?? '').replace('%', '').replace(',', '.')) || 0; }
 function normalize(raw: Record<string, unknown>, index = 0): Caderno {
-  const attempted = numberValue(raw.attempted ?? raw.respondidas ?? raw.resolvidas ?? raw.total);
+  let attempted = numberValue(raw.attempted ?? raw.respondidas ?? raw.resolvidas ?? raw.total);
   const accuracy = numberValue(raw.accuracy ?? raw.aproveitamento ?? raw.percentualAcerto);
   let correct = numberValue(raw.correct ?? raw.acertos ?? raw.certas);
   if (!correct && attempted && accuracy) correct = Math.round(attempted * accuracy / 100);
@@ -126,7 +136,14 @@ function normalize(raw: Record<string, unknown>, index = 0): Caderno {
   const id = String(raw.id ?? raw.cadernoId ?? raw.codigo ?? `local-${index}-${name.toLowerCase().replace(/\W+/g, '-')}`);
   const area = String(raw.subject ?? raw.area ?? raw.disciplina ?? 'specific').toLowerCase();
   const subject: Subject = /geral|portugu|ingl[eê]s|matem|racioc|rlm|legisla|atualidade|conhecimentos gerais/.test(area) ? 'general' : 'specific';
-  return { id, contestId: String(raw.contestId ?? raw.contest_id ?? state.activeContestId), name, subject, sourcePlatform: String(raw.sourcePlatform ?? raw.source_platform ?? ''), topic: String(raw.topic ?? raw.assunto ?? ''), attempted: Math.max(0, attempted), correct: Math.max(0, Math.min(correct, attempted || correct)), incorrect: Math.max(0, numberValue(raw.incorrect ?? raw.erros) || attempted - correct), repeatErrors: numberValue(raw.repeatErrors ?? raw.errosRepetidos), lastAttemptAt: String(raw.lastAttemptAt ?? raw.ultimoEstudo ?? raw.lastAttempt ?? '') || null, updatedAt: new Date().toISOString() };
+  const sourcePlatform = String(raw.sourcePlatform ?? raw.source_platform ?? '');
+  const explicitIncorrect = numberValue(raw.incorrect ?? raw.erros);
+  // O conector só envia uma linha quando conseguiu ler o tripé completo
+  // resolvidas/acertos/erros. Dê preferência a ele, nunca a um número solto
+  // encontrado na página (por exemplo, “questão 44”).
+  if (/^(tec|qconcursos)$/i.test(sourcePlatform) && correct + explicitIncorrect > 0) attempted = correct + explicitIncorrect;
+  const incorrect = explicitIncorrect || Math.max(0, attempted - correct);
+  return { id, contestId: String(raw.contestId ?? raw.contest_id ?? state.activeContestId), name, subject, sourcePlatform, topic: String(raw.topic ?? raw.assunto ?? ''), attempted: Math.max(0, attempted), correct: Math.max(0, Math.min(correct, attempted || correct)), incorrect: Math.max(0, incorrect), repeatErrors: numberValue(raw.repeatErrors ?? raw.errosRepetidos), lastAttemptAt: String(raw.lastAttemptAt ?? raw.ultimoEstudo ?? raw.lastAttempt ?? '') || null, updatedAt: new Date().toISOString() };
 }
 
 function cloudConfigured(): boolean {
@@ -298,15 +315,19 @@ function diagnosis(c: Caderno): Diagnosis {
   const raw = c.attempted ? 100 * c.correct / c.attempted : 0;
   const smooth = c.attempted ? 100 * (c.correct + 5) / (c.attempted + 10) : 0;
   const minimum = activeContest().minQuestions || MIN_SAMPLE, eligible = c.attempted >= minimum, bands = accuracyBands();
+  // Meta é a direção (100% por padrão), não uma licença para classificar 95%
+  // como problema. A faixa forte exige apenas manutenção espaçada.
+  const strong = Math.max(bands.consolidation, bands.target - 10);
   let status: Status = 'neutral';
   if (eligible && raw < bands.recovery) status = 'bad'; else if (eligible && raw < bands.target) status = 'warn'; else if (eligible) status = 'good';
   const days = c.lastAttemptAt ? Math.max(0, (Date.now() - new Date(c.lastAttemptAt).getTime()) / 86400000) : 14;
   const contest = activeContest(), recency = 1 + Math.min(days / 14, 1), repeat = 1 + Math.min(c.repeatErrors / 5, 1), weight = c.subject === 'specific' ? contest.specificWeight : contest.generalWeight;
   const coverage = (c as Caderno & { coverage?: string }).coverage === 'missing' ? 1.5 : (c as Caderno & { coverage?: string }).coverage === 'partial' ? 1.2 : 1;
-  const gap = Math.max(0, bands.target - smooth) / 100, maintenance = raw >= bands.target ? Math.min(days / 60, .08) : 0;
+  if (eligible && raw >= strong) status = 'good';
+  const gap = raw >= strong ? 0 : Math.max(0, bands.target - smooth) / 100, maintenance = raw >= strong ? Math.min(days / 60, .08) : 0;
   const confidence = Math.min(.95, Math.max(.15, Math.sqrt(c.attempted) / 10));
   const risk = eligible ? weight * (gap + maintenance) * recency * repeat * coverage * (1.15 - confidence * .15) : 0;
-  const action = !eligible ? `Resolver ${Math.max(0, minimum - c.attempted)} questões novas para medir` : raw < bands.critical ? 'Reaprender a teoria + questões graduais' : raw < bands.recovery ? 'Recuperação dirigida + 15 questões novas' : raw < bands.consolidation ? 'Consolidar erros + 12 questões novas' : raw < bands.target ? `Fechar a lacuna até ${bands.target}%` : 'Manutenção espaçada para sustentar a meta';
+  const action = !eligible ? `Resolver ${Math.max(0, minimum - c.attempted)} questões novas para medir` : raw < bands.critical ? 'Reaprender a teoria + questões graduais' : raw < bands.recovery ? 'Recuperação dirigida + 15 questões novas' : raw < bands.consolidation ? 'Consolidar erros + 12 questões novas' : raw < strong ? `Ajustar os erros até a faixa forte (${strong}%)` : 'Manutenção espaçada para sustentar o domínio';
   return { raw, smooth, confidence, eligible, status, risk, action };
 }
 function ranked(): Ranked[] { return Object.values(state.cadernos).filter((c) => c.contestId === state.activeContestId).map((c) => ({ ...c, d: diagnosis(c) })).sort((a, b) => b.d.risk - a.d.risk || a.name.localeCompare(b.name, 'pt-BR')); }
@@ -315,6 +336,22 @@ function studyPhase(): { key: StudyPhase; label: string; description: string } {
 function weightedAccuracy(list: Ranked[]): number { const measured = list.filter((item) => item.attempted > 0), total = measured.reduce((sum, item) => sum + item.attempted * (item.subject === 'specific' ? activeContest().specificWeight : activeContest().generalWeight), 0); return total ? 100 * measured.reduce((sum, item) => sum + item.correct * (item.subject === 'specific' ? activeContest().specificWeight : activeContest().generalWeight), 0) / total : 0; }
 function readiness(list: Ranked[]): { estimate: number; confidence: number } { const measured = list.filter((item) => item.attempted > 0), total = measured.reduce((sum, item) => sum + item.attempted * (item.subject === 'specific' ? activeContest().specificWeight : activeContest().generalWeight), 0); if (!total) return { estimate: 0, confidence: 0 }; return { estimate: measured.reduce((sum, item) => sum + item.d.smooth * item.attempted * (item.subject === 'specific' ? activeContest().specificWeight : activeContest().generalWeight), 0) / total, confidence: measured.reduce((sum, item) => sum + item.d.confidence * item.attempted, 0) / measured.reduce((sum, item) => sum + item.attempted, 0) }; }
 function renderDecision(list: Ranked[]): void { const target = $('#decisionText'), phaseBadge = $('#phaseBadge'); if (!target || !phaseBadge) return; const phase = studyPhase(), bands = accuracyBands(), studied = currentDay().seconds / 60, remaining = Math.max(0, Math.ceil(state.targetMinutes - studied)), accuracy = weightedAccuracy(list), forecast = readiness(list), recovery = list.filter((item) => item.d.eligible && item.d.raw < bands.recovery).length; phaseBadge.textContent = phase.label; phaseBadge.className = `badge ${phase.key === 'vespera' || phase.key === 'reta-final' ? 'warn' : phase.key === 'pre-edital' ? 'neutral' : 'good'}`; let title = '', action = ''; if (!list.length) { title = 'Aguardando a primeira leitura automática das plataformas'; action = 'Enquanto isso, o sistema mantém a trilha de conteúdo disponível e registra seu tempo nos players.'; } else if (!remaining) { title = 'Meta líquida de hoje concluída'; action = phase.key === 'vespera' ? 'Encerrar ou fazer apenas uma revisão leve.' : 'Se continuar, use revisão espaçada dos erros — não aumente a carga automaticamente.'; } else if (recovery) { title = `${recovery} assunto(s) abaixo da faixa de recuperação (${bands.recovery}%)`; action = `Dedique os próximos ${remaining} min a teoria objetiva + questões novas dos maiores riscos.`; } else if (!accuracy) { title = 'Ainda sem amostra suficiente de desempenho'; action = `Use ${remaining} min para cobrir a base e resolver questões novas para calibrar o plano.`; } else if (forecast.estimate >= bands.target && forecast.confidence >= .7) { title = `Objetivo de ${bands.target}% sustentado pela amostra`; action = `O sistema reduz a carga para manutenção espaçada e protege o resultado até a prova.`; } else if (phase.key === 'reta-final' || phase.key === 'vespera') { title = `Consolidar rumo à meta de ${bands.target}% (${forecast.estimate.toFixed(1)}% estimado)`; action = `Priorize erros, revisão e simulado; evite abrir assuntos de baixo retorno nos ${remaining} min restantes.`; } else { title = `Avançar rumo à meta de ${bands.target}% (${forecast.estimate.toFixed(1)}% estimado)`; action = `${phase.description} Restam ${remaining} min da disponibilidade de hoje.`; } target.innerHTML = `<span class="badge ${recovery ? 'bad' : 'good'}">${recovery ? 'RECUPERAÇÃO' : 'PRÓXIMA AÇÃO'}</span><div><strong>${esc(title)}</strong><div>${esc(action)}</div><div class="muted">Confiança da estimativa: ${Math.round(forecast.confidence * 100)}% · ${phase.description} · ${daysUntilExam() ? `${daysUntilExam()} dias até a prova` : 'data da prova ainda não definida'}.</div></div>`; }
+function errorSignals(): ErrorSignal[] {
+  const groups = new Map<string, { topic: string; attempts: number; errors: number }>();
+  for (const attempt of state.questionAttempts || []) {
+    if (attempt.contestId !== state.activeContestId || attempt.correct) continue;
+    const topic = String(attempt.metadata?.topic || 'Assunto não identificado').replace(/\s+/g, ' ').trim();
+    const key = topic.toLocaleLowerCase('pt-BR'); const group = groups.get(key) || { topic, attempts: 0, errors: 0 };
+    group.attempts++; group.errors++; groups.set(key, group);
+  }
+  const general = /portugu|ingl[eê]s|matem|racioc|rlm|legisla|atualidade/.test.bind(/portugu|ingl[eê]s|matem|racioc|rlm|legisla|atualidade/);
+  return [...groups.values()].map((group) => {
+    const tokens = group.topic.toLocaleLowerCase('pt-BR').split(/[^\p{L}\p{N}]+/u).filter((token) => token.length > 3);
+    const content = roadmapItems.map((item) => ({ item, hits: tokens.filter((token) => `${item.area} ${item.title} ${item.tec}`.toLocaleLowerCase('pt-BR').includes(token)).length })).sort((a, b) => b.hits - a.hits)[0];
+    const mapped = Boolean(content?.hits); const subject: Subject = general(group.topic.toLocaleLowerCase('pt-BR')) ? 'general' : 'specific';
+    return { ...group, subject, content: mapped ? content.item : undefined, coverage: (mapped ? 'mapped' : 'unmapped') as ErrorSignal['coverage'], risk: group.errors * (mapped ? 1 : 1.7) * (subject === 'specific' ? activeContest().specificWeight : activeContest().generalWeight) };
+  }).sort((a, b) => b.risk - a.risk);
+}
 function dailyPlan(list = ranked()): StudyBlock[] {
   const available = Math.max(0, state.targetMinutes - Math.floor(currentDay().seconds / 60)), accuracy = weightedAccuracy(list), total = list.length && accuracy >= accuracyBands().target ? Math.min(available, 60) : available, specific = list.filter((item) => item.subject === 'specific'), general = list.filter((item) => item.subject === 'general');
   if (total < 5) return [];
@@ -323,9 +360,16 @@ function dailyPlan(list = ranked()): StudyBlock[] {
   const contest = activeContest(), weightRatio = contest.specificWeight / (contest.specificWeight + contest.generalWeight), specificShare = Math.max(.45, Math.min(.85, weightRatio + imbalance * .12));
   const minutesBySubject: Record<Subject, number> = { specific: Math.round(total * specificShare), general: total - Math.round(total * specificShare) };
   const blocks: StudyBlock[] = [];
+  const forced = errorSignals().slice(0, 2);
+  for (const signal of forced) {
+    const minutes = Math.min(25, Math.max(0, minutesBySubject[signal.subject]));
+    if (!minutes) continue;
+    minutesBySubject[signal.subject] -= minutes;
+    blocks.push({ subject: signal.subject, topic: signal.topic, minutes, mode: 'correction', risk: signal.risk, action: signal.coverage === 'mapped' ? `Erro detectado: reveja ${signal.content!.code} — ${signal.content!.title}; depois faça questões novas.` : 'Erro sem conteúdo mapeado: o Nexame sinalizou lacuna para complemento e revisão dirigida.' });
+  }
   (['specific', 'general'] as Subject[]).forEach((subject) => {
     const pool = list.filter((item) => item.subject === subject).slice(0, 4), fallback = subject === 'specific' ? 'Específicas — cobertura e recuperação' : 'Gerais — revisão e questões';
-  if (!pool.length) { blocks.push({ subject, topic: fallback, minutes: minutesBySubject[subject], mode: 'review', action: 'Adicionar resultados de uma plataforma de questões para calibrar', risk: 0 }); return; }
+  if (!minutesBySubject[subject]) return; if (!pool.length) { blocks.push({ subject, topic: fallback, minutes: minutesBySubject[subject], mode: 'review', action: 'Adicionar resultados de uma plataforma de questões para calibrar', risk: 0 }); return; }
     const totalRisk = pool.reduce((sum, item) => sum + Math.max(item.d.risk, .15), 0);
     pool.forEach((item) => { const minutes = Math.max(25, Math.round(minutesBySubject[subject] * Math.max(item.d.risk, .15) / totalRisk)), recovery = item.d.eligible && item.d.raw < accuracyBands().recovery; blocks.push({ subject, topic: item.name, minutes, mode: recovery ? 'correction' : item.attempted < activeContest().minQuestions ? 'tec' : 'video', action: item.d.action, risk: item.d.risk }); });
   });
@@ -336,7 +380,7 @@ function renderHud(list = ranked()): void {
   $('#hudTime').textContent = fmtSeconds(seconds, true); $('#hudTarget').textContent = `${activeContest().targetAccuracy}% · ${state.targetMinutes} min`; $('#hudRecovery').textContent = String(recovery.length); $('#hudRecovery').style.color = recovery.length ? '#fb7185' : '#34d399'; $('#hudNext').textContent = next ? next.name : 'Aguardando dados'; $('#hudNext').title = next ? next.d.action : 'Aguardando sincronização das plataformas'; $('#hudSync').textContent = state.sync ? fmtDate(state.sync.at) : 'local';
 }
 function renderTimer(): void { const seconds = currentDay().seconds + pendingSessionSeconds; $('#clock').textContent = fmtSeconds(seconds); $('#timerStatus').textContent = timerRunning ? (focused() ? 'Estudando' : 'Pausado: página fora de foco') : 'Aguardando atividade'; $('#timerToggle').textContent = timerRunning ? 'Pausar sessão' : 'Iniciar sessão'; $('#hudTimerToggle').textContent = timerRunning ? 'Pausar' : 'Iniciar'; $<HTMLSelectElement>('#hudSessionType').value = $<HTMLSelectElement>('#sessionType').value; renderHud(); }
-function renderTable(list: Ranked[]): void { const bands = accuracyBands(); $('#cadernosEmpty').style.display = list.length ? 'none' : 'block'; $('#cadernosBody').innerHTML = list.map((x) => { const d = x.d, pct = x.attempted ? d.raw : 0; return `<tr><td><strong>${esc(x.name)}</strong><small>${esc(x.topic)}</small></td><td>${x.subject === 'specific' ? 'Específicas' : 'Gerais'}</td><td><div>${pct.toFixed(1)}%</div><div class="bar"><span class="${d.status}" style="width:${Math.min(100, pct)}%"></span></div></td><td>${x.correct}/${x.attempted}<small>${x.repeatErrors || 0} erros repetidos</small></td><td><span class="badge ${d.status}">${d.eligible ? (d.raw < bands.recovery ? 'RECUPERAÇÃO' : d.raw < bands.consolidation ? 'CONSOLIDAÇÃO' : d.raw < bands.target ? 'QUASE NA META' : 'META ATINGIDA') : 'AMOSTRA PEQUENA'}</span></td><td>${esc(d.action)}</td></tr>`; }).join(''); }
+function renderTable(list: Ranked[]): void { const bands = accuracyBands(), strong = Math.max(bands.consolidation, bands.target - 10); $('#cadernosEmpty').style.display = list.length ? 'none' : 'block'; $('#cadernosBody').innerHTML = list.map((x) => { const d = x.d, pct = x.attempted ? d.raw : 0; return `<tr><td><strong>${esc(x.name)}</strong><small>${esc(x.topic)}</small></td><td>${x.subject === 'specific' ? 'Específicas' : 'Gerais'}</td><td><div>${pct.toFixed(1)}%</div><div class="bar"><span class="${d.status}" style="width:${Math.min(100, pct)}%"></span></div></td><td>${x.correct}/${x.attempted}<small>${x.repeatErrors || 0} erros repetidos</small></td><td><span class="badge ${d.status}">${d.eligible ? (d.raw < bands.recovery ? 'RECUPERAÇÃO' : d.raw < bands.consolidation ? 'CONSOLIDAÇÃO' : d.raw < strong ? 'EM EVOLUÇÃO' : 'DOMÍNIO FORTE') : 'AMOSTRA PEQUENA'}</span></td><td>${esc(d.action)}</td></tr>`; }).join(''); }
 function renderDailyPlan(list: Ranked[]): void {
   const target = $('#dailyPlan'), blocks = dailyPlan(list);
   if (!target) return;
@@ -425,7 +469,7 @@ function importRecords(input: unknown, source: string): void { const records = A
 function readFile(file: File): void { const reader = new FileReader(); reader.onload = () => { try { const text = String(reader.result), input = file.name.toLowerCase().endsWith('.csv') ? parseCSV(text) : JSON.parse(text); importRecords(input, file.name); } catch (error) { $('#syncMessage').innerHTML = `<strong>Falha na importação:</strong> ${esc(error instanceof Error ? error.message : error)}`; } }; reader.readAsText(file); }
 function exportData(): void { const blob = new Blob([JSON.stringify({ version: 1, exportedAt: new Date().toISOString(), ...state }, null, 2)], { type: 'application/json' }); const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `estudos-${today}.json`; link.click(); URL.revokeObjectURL(link.href); }
 
-function mountPlayer(view: string): void { const wrap = $<HTMLDivElement>(`#${view} .iframe-wrap`); if (!wrap || wrap.querySelector('iframe')) return; const frame = document.createElement('iframe'); frame.src = wrap.dataset.playerSrc || ''; frame.title = wrap.dataset.playerTitle || ''; frame.loading = 'eager'; wrap.appendChild(frame); }
+function mountPlayer(view: string): void { const wrap = $<HTMLDivElement>(`#${view} .iframe-wrap`); if (!wrap || wrap.querySelector('iframe')) return; const frame = document.createElement('iframe'); frame.src = wrap.dataset.playerSrc || ''; frame.title = wrap.dataset.playerTitle || ''; frame.loading = 'eager'; frame.addEventListener('load', () => { try { const code = frame.contentDocument?.querySelector('#position')?.textContent?.match(/·\s*([EG]\d+)/)?.[1]; window.NexamePdfLibrary?.attach(frame.contentDocument, code); } catch (_) { /* iframe remains usable if augmentation fails */ } }); wrap.appendChild(frame); }
 function openView(view: string): void {
   const target = document.querySelector<HTMLElement>(`#${view}`);
   const tab = document.querySelector<HTMLButtonElement>(`[data-view="${view}"]`);
@@ -451,12 +495,20 @@ $('#export').addEventListener('click', exportData);
 $('#timerToggle').addEventListener('click', () => timerRunning ? pauseTimer('manual') : startTimer('manual')); $('#hudTimerToggle').addEventListener('click', () => timerRunning ? pauseTimer('hud') : startTimer('manual')); $('#hudSessionType').addEventListener('change', (event) => { $<HTMLSelectElement>('#sessionType').value = (event.target as HTMLSelectElement).value; }); $('#timerReset').addEventListener('click', () => { if (timerRunning) pauseTimer('reset'); state.daily[dayKey()] = { seconds: 0, sessions: [] }; saveState(); render(); });
 ['visibilitychange', 'blur'].forEach((eventName) => document.addEventListener(eventName, () => { if (timerRunning) { timerLoop(); renderTimer(); } })); window.addEventListener('focus', () => { if (timerRunning) timerLast = performance.now(); renderTimer(); }); window.addEventListener('beforeunload', () => { if (timerRunning) pauseTimer('unload'); });
 $('#clearCadernos').addEventListener('click', () => { if (confirm('Remover os cadernos e resultados deste concurso neste navegador?')) { Object.keys(state.cadernos).filter((key) => key.startsWith(`${state.activeContestId}::`)).forEach((key) => delete state.cadernos[key]); state.sync = null; saveState(); render(); } }); $('#cadernoForm').addEventListener('submit', (event) => { event.preventDefault(); const form = new FormData(event.currentTarget as HTMLFormElement), c = normalize({ id: `manual-${String(form.get('name')).toLowerCase().replace(/\W+/g, '-')}`, name: form.get('name'), subject: form.get('subject'), attempted: form.get('attempted'), correct: form.get('correct'), repeatErrors: form.get('repeatErrors'), lastAttemptAt: form.get('lastAttemptAt') }); state.cadernos[cadernoKey(c.id)] = c; state.sync = { at: new Date().toISOString(), source: `cadastro manual · ${contestLabel(state.activeContestId)}` }; saveState(); (event.currentTarget as HTMLFormElement).reset(); render(); });
-window.addEventListener('message', (event: MessageEvent<{ type?: string; playing?: boolean; player?: string; code?: string; seconds?: number; completed?: boolean; catalog?: ContentItem[]; snapshot?: { generatedAt?: string; cadernos?: unknown[]; questionAttempts?: Array<{ id?: string; cadernoId?: string; correct?: boolean; attemptedAt?: string; durationSeconds?: number; topic?: string }> } }>) => {
+window.addEventListener('message', (event: MessageEvent<{ type?: string; playing?: boolean; player?: string; code?: string; seconds?: number; completed?: boolean; catalog?: ContentItem[]; snapshot?: { generatedAt?: string; cadernos?: unknown[]; studyTotals?: Record<string, number>; questionAttempts?: Array<{ id?: string; cadernoId?: string; correct?: boolean; attemptedAt?: string; durationSeconds?: number; topic?: string }> } }>) => {
   if (event.origin !== window.location.origin) return;
   if (event.data?.type === 'nexame-platform-snapshot' && event.data.snapshot) {
     const payload = event.data.snapshot;
     if (payload.generatedAt && payload.generatedAt === lastExtensionSnapshotAt) return;
     lastExtensionSnapshotAt = payload.generatedAt || new Date().toISOString();
+    for (const [key, totalValue] of Object.entries(payload.studyTotals || {})) {
+      const total = Math.max(0, Math.min(86400, Number(totalValue) || 0)), prior = state.platformStudyTotals![key] || 0, delta = Math.max(0, total - prior);
+      state.platformStudyTotals![key] = Math.max(prior, total);
+      if (!delta || !key.endsWith(`:${today}`)) continue;
+      currentDay().seconds += delta;
+      currentDay().sessions.push({ type: 'tec', seconds: delta, endedAt: payload.generatedAt || new Date().toISOString(), reason: 'plataforma de questões' });
+      recordEvent('question_session', 'nexame-connector', delta, { platformTotalKey: key });
+    }
     if (Array.isArray(payload.cadernos) && payload.cadernos.length) importRecords(payload, 'extensão Nexame · plataforma de questões');
     for (const attempt of payload.questionAttempts || []) {
       if (!attempt.id || typeof attempt.correct !== 'boolean') continue;
@@ -465,8 +517,9 @@ window.addEventListener('message', (event: MessageEvent<{ type?: string; playing
     saveState(); render(); return;
   }
   if (event.data?.type === 'dataprev-study-state') {
+    const frame = [...document.querySelectorAll('iframe')].find((item) => item.contentWindow === event.source);
+    window.NexamePdfLibrary?.attach(frame?.contentDocument, event.data.code);
     if (event.data.playing) {
-      const frame = [...document.querySelectorAll('iframe')].find((item) => item.contentWindow === event.source);
       if (frame?.closest('#specific') || frame?.closest('#general')) { $<HTMLSelectElement>('#sessionType').value = 'video'; $<HTMLSelectElement>('#hudSessionType').value = 'video'; }
       if (playerPauseTick) window.clearTimeout(playerPauseTick); playerPauseTick = null;
       if (!timerRunning && !manualPause) startTimer('player');
