@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Nexame — Assistente de estudos",
-  "version": "2.0.4",
+  "version": "2.0.5",
   "description": "Atualiza seu desempenho nas plataformas de questões e ajusta automaticamente seu plano de estudos no Nexame.",
   "icons": {
     "16": "icons/icon-16.png",

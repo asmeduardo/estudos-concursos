@@ -24,14 +24,18 @@
   };
   if (location.origin === APP_ORIGIN) {
     let lastSnapshot = '';
-    const request = () => send({ type: 'get_snapshot' }, (result) => {
-      if (chrome.runtime.lastError || !result?.ok || !result.snapshot) return;
+    let bridgeTimer = null;
+    const request = () => {
+      if (!extensionAlive()) { if (bridgeTimer !== null) clearInterval(bridgeTimer); return; }
+      send({ type: 'get_snapshot' }, (result) => {
+      if (!result?.ok || !result.snapshot) return;
       const stamp = String(result.snapshot.generatedAt || '');
       if (stamp === lastSnapshot) return;
       lastSnapshot = stamp;
       window.postMessage({ type: 'nexame-platform-snapshot', snapshot: result.snapshot }, location.origin);
-    });
-    request(); setInterval(request, 30000); return;
+      });
+    };
+    request(); bridgeTimer = setInterval(request, 30000); return;
   }
   const adapters = globalThis.NexameAdapters || {};
   const adapter = Object.values(adapters).find((item) => item.matches(location.hostname));
@@ -98,5 +102,7 @@
   function badge(label) { let node = document.getElementById('nexame-connector-status'); if (!node) { node = document.createElement('div'); node.id = 'nexame-connector-status'; node.style.cssText = 'position:fixed;right:14px;bottom:14px;z-index:2147483647;background:#0f766e;color:#ecfeff;padding:7px 10px;border-radius:8px;font:12px system-ui;box-shadow:0 2px 10px #0005'; document.body.appendChild(node); } if (node.textContent !== label) node.textContent = label; }
   collect();
   new MutationObserver(() => { if (timer !== null) return; timer = setTimeout(() => { timer = null; collect(); }, 500); }).observe(document.documentElement, { childList: true, subtree: true });
-  setInterval(collect, 60000); setInterval(trackStudyTime, 15000); document.addEventListener('visibilitychange', () => { studyLast = Date.now(); }); window.addEventListener('focus', () => { studyLast = Date.now(); });
+  const collectorTimer = setInterval(() => { if (!extensionAlive()) { clearInterval(collectorTimer); clearInterval(studyTimer); return; } collect(); }, 60000);
+  const studyTimer = setInterval(() => { if (!extensionAlive()) { clearInterval(collectorTimer); clearInterval(studyTimer); return; } trackStudyTime(); }, 15000);
+  document.addEventListener('visibilitychange', () => { studyLast = Date.now(); }); window.addEventListener('focus', () => { studyLast = Date.now(); });
 })();
