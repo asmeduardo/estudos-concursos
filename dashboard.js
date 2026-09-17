@@ -51,6 +51,7 @@ let pendingSessionSeconds = 0;
 let playerPauseTick = null;
 let manualPause = false;
 let timerSubject = 'specific';
+let activePlayerFrame = null;
 let cloud = null;
 let cloudUserId = '';
 let cloudUserEmail = '';
@@ -705,6 +706,8 @@ function mountPlayer(view) { const wrap = $(`#${view} .iframe-wrap`); if (!wrap 
     window.NexamePdfLibrary?.attach(frame.contentDocument, code);
 }
 catch (_) { /* iframe remains usable if augmentation fails */ } }); wrap.appendChild(frame); }
+function pauseEmbeddedPlayers(except) { document.querySelectorAll('.iframe-wrap iframe').forEach((frame) => { if (frame.contentWindow && frame.contentWindow !== except)
+    frame.contentWindow.postMessage({ type: 'nexame-player-command', action: 'pause' }, window.location.origin); }); }
 function openView(view) {
     const target = document.querySelector(`#${view}`);
     const tab = document.querySelector(`[data-view="${view}"]`);
@@ -714,8 +717,10 @@ function openView(view) {
     document.querySelectorAll('.view').forEach((item) => item.classList.remove('active'));
     tab.classList.add('active');
     target.classList.add('active');
-    if (view === 'specific' || view === 'general')
+    if (view === 'specific' || view === 'general') {
         mountPlayer(view);
+        pauseEmbeddedPlayers($(`#${view} .iframe-wrap iframe`)?.contentWindow);
+    }
     history.replaceState(null, '', `#${view}`);
 }
 document.querySelectorAll('.tab').forEach((button) => button.addEventListener('click', () => openView(button.dataset.view || 'dashboard')));
@@ -787,6 +792,8 @@ window.addEventListener('message', (event) => {
         const frame = [...document.querySelectorAll('iframe')].find((item) => item.contentWindow === event.source);
         window.NexamePdfLibrary?.attach(frame?.contentDocument, event.data.code);
         if (event.data.playing) {
+            pauseEmbeddedPlayers(event.source);
+            activePlayerFrame = event.source;
             if (frame?.closest('#specific') || frame?.closest('#general')) {
                 timerSubject = frame?.closest('#general') ? 'general' : 'specific';
                 $('#sessionType').value = 'video';
@@ -798,8 +805,8 @@ window.addEventListener('message', (event) => {
             if (!timerRunning && !manualPause)
                 startTimer('player');
         }
-        else if (timerRunning && !playerPauseTick) {
-            playerPauseTick = window.setTimeout(() => { playerPauseTick = null; if (timerRunning)
+        else if (event.source === activePlayerFrame && timerRunning && !playerPauseTick) {
+            playerPauseTick = window.setTimeout(() => { playerPauseTick = null; if (timerRunning && event.source === activePlayerFrame)
                 pauseTimer('player'); }, 1500);
         }
         return;

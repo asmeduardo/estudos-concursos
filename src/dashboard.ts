@@ -74,6 +74,7 @@ let pendingSessionSeconds = 0;
 let playerPauseTick: number | null = null;
 let manualPause = false;
 let timerSubject: Subject = 'specific';
+let activePlayerFrame: Window | null = null;
 
 interface Window {
   __SUPABASE_CONFIG__?: { url?: string; anonKey?: string };
@@ -527,6 +528,7 @@ function readFile(file: File): void { const reader = new FileReader(); reader.on
 function exportData(): void { const blob = new Blob([JSON.stringify({ version: 1, exportedAt: new Date().toISOString(), ...state }, null, 2)], { type: 'application/json' }); const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `estudos-${today}.json`; link.click(); URL.revokeObjectURL(link.href); }
 
 function mountPlayer(view: string): void { const wrap = $<HTMLDivElement>(`#${view} .iframe-wrap`); if (!wrap || wrap.querySelector('iframe')) return; const frame = document.createElement('iframe'); frame.src = wrap.dataset.playerSrc || ''; frame.title = wrap.dataset.playerTitle || ''; frame.loading = 'eager'; frame.addEventListener('load', () => { try { const code = frame.contentDocument?.querySelector('#position')?.textContent?.match(/·\s*([EG]\d+)/)?.[1]; window.NexamePdfLibrary?.attach(frame.contentDocument, code); } catch (_) { /* iframe remains usable if augmentation fails */ } }); wrap.appendChild(frame); }
+function pauseEmbeddedPlayers(except?: Window | null): void { document.querySelectorAll<HTMLIFrameElement>('.iframe-wrap iframe').forEach((frame) => { if (frame.contentWindow && frame.contentWindow !== except) frame.contentWindow.postMessage({ type: 'nexame-player-command', action: 'pause' }, window.location.origin); }); }
 function openView(view: string): void {
   const target = document.querySelector<HTMLElement>(`#${view}`);
   const tab = document.querySelector<HTMLButtonElement>(`[data-view="${view}"]`);
@@ -535,7 +537,7 @@ function openView(view: string): void {
   document.querySelectorAll('.view').forEach((item) => item.classList.remove('active'));
   tab.classList.add('active');
   target.classList.add('active');
-  if (view === 'specific' || view === 'general') mountPlayer(view);
+  if (view === 'specific' || view === 'general') { mountPlayer(view); pauseEmbeddedPlayers($<HTMLIFrameElement>(`#${view} .iframe-wrap iframe`)?.contentWindow); }
   history.replaceState(null, '', `#${view}`);
 }
 
@@ -578,10 +580,12 @@ window.addEventListener('message', (event: MessageEvent<{ type?: string; playing
     const frame = [...document.querySelectorAll('iframe')].find((item) => item.contentWindow === event.source);
     window.NexamePdfLibrary?.attach(frame?.contentDocument, event.data.code);
     if (event.data.playing) {
+      pauseEmbeddedPlayers(event.source as Window);
+      activePlayerFrame = event.source as Window;
       if (frame?.closest('#specific') || frame?.closest('#general')) { timerSubject = frame?.closest('#general') ? 'general' : 'specific'; $<HTMLSelectElement>('#sessionType').value = 'video'; $<HTMLSelectElement>('#hudSessionType').value = 'video'; }
       if (playerPauseTick) window.clearTimeout(playerPauseTick); playerPauseTick = null;
       if (!timerRunning && !manualPause) startTimer('player');
-    } else if (timerRunning && !playerPauseTick) { playerPauseTick = window.setTimeout(() => { playerPauseTick = null; if (timerRunning) pauseTimer('player'); }, 1500); }
+    } else if (event.source === activePlayerFrame && timerRunning && !playerPauseTick) { playerPauseTick = window.setTimeout(() => { playerPauseTick = null; if (timerRunning && event.source === activePlayerFrame) pauseTimer('player'); }, 1500); }
     return;
   }
   if (event.data?.type === 'dataprev-content-catalog' && Array.isArray(event.data.catalog)) { state.content![state.activeContestId] = event.data.catalog; saveState(); return; }

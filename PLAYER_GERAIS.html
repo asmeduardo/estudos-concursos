@@ -1242,6 +1242,16 @@
           );
         } catch (_) {}
       }
+      window.addEventListener("message", (event) => {
+        if (
+          event.origin !== window.location.origin ||
+          event.data?.type !== "nexame-player-command" ||
+          event.data?.action !== "pause"
+        )
+          return;
+        if (player?.pauseVideo) player.pauseVideo();
+        announce(false);
+      });
       function onYouTubeIframeAPIReady() {
         const t = tracks[index],
           start = Math.max(t.start, resumeTime);
